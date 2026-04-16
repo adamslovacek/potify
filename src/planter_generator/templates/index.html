@@ -183,7 +183,10 @@
       min-height: 0;
     }
     .menu-panel {
-      overflow: auto;
+      overflow-y: auto;
+      height: 100%;
+      max-height: calc(100vh - 170px);
+      padding-right: 6px;
     }
     .section-heading {
       border-top: 1px solid #e8ebf0;
@@ -203,9 +206,6 @@
       min-height: 1.2em;
       margin-top: 8px;
     }
-    .texture-section {
-      display: none;
-    }
     @media (max-width: 980px) {
       .layout { grid-template-columns: 1fr; }
       .menu-panel { max-height: 46vh; }
@@ -218,6 +218,7 @@
       .content { padding: 16px 18px 24px; }
     }
   </style>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
 </head>
 <body>
   <main class="card">
@@ -295,6 +296,21 @@
               <input name="texture_rotation" type="number" step="1" min="0" max="360" value="{{ values.texture_rotation }}" required>
             </label>
             <label>
+              Material style
+              <select name="material_type" required>
+                <option value="concrete">Light concrete</option>
+                <option value="dark-stone">Dark stone</option>
+                <option value="glossy-ceramic">Glossy ceramic</option>
+                <option value="brushed-metal">Brushed metal</option>
+                <option value="matte-black">Matte black</option>
+                <option value="sandstone">Sandstone</option>
+                <option value="slate">Slate finish</option>
+                <option value="pearl-glaze">Pearl glaze</option>
+                <option value="charcoal">Charcoal</option>
+                <option value="smooth-sand">Smooth sand</option>
+              </select>
+            </label>
+            <label>
               Mesh sections
               <input name="sections" type="number" step="1" min="24" value="{{ values.sections }}" required>
             </label>
@@ -318,19 +334,18 @@
   </main>
   <script>
     const canvas = document.getElementById("preview-canvas");
-    const ctx = canvas.getContext("2d");
     const previewError = document.getElementById("preview-error");
     const form = document.querySelector("form[action='/generate']");
     const inputNames = [
       "pot_diameter", "clearance", "height", "wall", "base", "taper", "rim_lip",
-      "texture_type", "texture_strength", "texture_scale", "texture_rotation", "sections"
+      "texture_type", "texture_strength", "texture_scale", "texture_rotation", "material_type", "sections"
     ];
     const inputs = Object.fromEntries(inputNames.map((name) => [name, form.querySelector(`[name='${name}']`)]));
 
-    let meshData = { rings: [], minY: 0, maxY: 1, maxRadius: 1 };
-    let yaw = 0.9;
-    let pitch = -0.35;
-    let zoom = 1.0;
+    let renderer, scene, camera, modelMesh, light, ambient;
+    let yaw = 0.85;
+    let pitch = -0.25;
+    let zoom = 1.1;
     let dragging = false;
     let lastX = 0;
     let lastY = 0;
@@ -409,118 +424,209 @@
       ];
     }
 
-    function buildLatheWireframe() {
+    function buildGeometry() {
       const sections = Math.max(24, Math.floor(numberValue("sections")));
       const profile = buildProfile();
-      const rings = profile.map(([radius, y]) => {
-        const pts = [];
-        for (let i = 0; i < sections; i++) {
-          const a = (i / sections) * Math.PI * 2.0;
-          let radiusOffset = textureOffset(y, a);
-          const r = Math.max(0.05, radius + radiusOffset);
-          pts.push({
-            x: Math.cos(a) * r,
-            y,
-            z: Math.sin(a) * r,
-          });
+      const vertices = [];
+      const uvs = [];
+      const indices = [];
+
+      for (let i = 0; i < profile.length; i++) {
+        const [radius, y] = profile[i];
+        for (let j = 0; j < sections; j++) {
+          const theta = (j / sections) * Math.PI * 2.0;
+          const offset = textureOffset(y, theta);
+          const r = Math.max(0.025, radius + offset);
+          vertices.push(r * Math.cos(theta), y, r * Math.sin(theta));
+          uvs.push(j / sections, y / numberValue("height"));
         }
-        return pts;
+      }
+
+      for (let i = 0; i < profile.length - 1; i++) {
+        for (let j = 0; j < sections; j++) {
+          const a = i * sections + j;
+          const b = i * sections + ((j + 1) % sections);
+          const c = (i + 1) * sections + ((j + 1) % sections);
+          const d = (i + 1) * sections + j;
+          indices.push(a, b, c, a, c, d);
+        }
+      }
+
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute("position", new THREE.Float32BufferAttribute(vertices, 3));
+      geometry.setAttribute("uv", new THREE.Float32BufferAttribute(uvs, 2));
+      geometry.setIndex(indices);
+      geometry.computeVertexNormals();
+      return geometry;
+    }
+
+    function generateTexture(type) {
+      const size = 512;
+      const canvas = document.createElement("canvas");
+      canvas.width = canvas.height = size;
+      const ctx = canvas.getContext("2d");
+      ctx.clearRect(0, 0, size, size);
+
+      const styles = {
+        concrete: { base: "#b8bbc0", accent: "rgba(255,255,255,0.12)", noise: 0.04 },
+        "dark-stone": { base: "#4f545d", accent: "rgba(255,255,255,0.08)", noise: 0.08 },
+        "glossy-ceramic": { base: "#ece9e3", accent: "rgba(255,255,255,0.4)", noise: 0.02 },
+        "brushed-metal": { base: "#adb4bb", accent: "rgba(255,255,255,0.22)", noise: 0.03 },
+        "matte-black": { base: "#22252a", accent: "rgba(255,255,255,0.05)", noise: 0.04 },
+        sandstone: { base: "#d6c4a8", accent: "rgba(255,255,255,0.18)", noise: 0.06 },
+        slate: { base: "#8a92a0", accent: "rgba(255,255,255,0.12)", noise: 0.03 },
+        "pearl-glaze": { base: "#f1ece5", accent: "rgba(255,255,255,0.45)", noise: 0.02 },
+        charcoal: { base: "#363940", accent: "rgba(255,255,255,0.08)", noise: 0.06 },
+        "smooth-sand": { base: "#cbc1b0", accent: "rgba(255,255,255,0.16)", noise: 0.05 },
+      };
+
+      const style = styles[type] || styles.concrete;
+      ctx.fillStyle = style.base;
+      ctx.fillRect(0, 0, size, size);
+
+      for (let i = 0; i < 2200; i++) {
+        const x = Math.random() * size;
+        const y = Math.random() * size;
+        const radius = Math.random() * (style.noise * size);
+        ctx.fillStyle = `rgba(255,255,255,${Math.random() * 0.08})`;
+        ctx.beginPath();
+        ctx.arc(x, y, radius, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      if (type === "brushed-metal") {
+        ctx.strokeStyle = "rgba(255,255,255,0.16)";
+        ctx.lineWidth = 1.2;
+        for (let y = 0; y <= size; y += 6) {
+          ctx.beginPath();
+          ctx.moveTo(0, y + (Math.random() * 2 - 1));
+          ctx.lineTo(size, y + (Math.random() * 2 - 1));
+          ctx.stroke();
+        }
+      }
+
+      if (type === "glossy-ceramic" || type === "pearl-glaze") {
+        const gradient = ctx.createRadialGradient(size * 0.3, size * 0.2, 0, size * 0.3, size * 0.2, size * 0.8);
+        gradient.addColorStop(0, "rgba(255,255,255,0.35)");
+        gradient.addColorStop(1, "rgba(255,255,255,0)");
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, size, size);
+      }
+
+      if (type === "matte-black" || type === "charcoal") {
+        for (let i = 0; i < 70; i++) {
+          ctx.strokeStyle = `rgba(255,255,255,${Math.random() * 0.04})`;
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          const y = Math.random() * size;
+          ctx.moveTo(0, y);
+          ctx.lineTo(size, y + (Math.random() * 4 - 2));
+          ctx.stroke();
+        }
+      }
+
+      return new THREE.CanvasTexture(canvas);
+    }
+
+    function createMaterial() {
+      const type = inputs.material_type.value;
+      const presets = {
+        concrete: { color: 0xb8bcc0, roughness: 0.82, metalness: 0.05, bumpScale: 0.09 },
+        "dark-stone": { color: 0x4f545d, roughness: 0.88, metalness: 0.04, bumpScale: 0.12 },
+        "glossy-ceramic": { color: 0xece9e3, roughness: 0.22, metalness: 0.05, bumpScale: 0.02 },
+        "brushed-metal": { color: 0xadb4bb, roughness: 0.35, metalness: 0.85, bumpScale: 0.08 },
+        "matte-black": { color: 0x22252a, roughness: 0.93, metalness: 0.03, bumpScale: 0.06 },
+        sandstone: { color: 0xd6c4a8, roughness: 0.82, metalness: 0.02, bumpScale: 0.08 },
+        slate: { color: 0x8a92a0, roughness: 0.74, metalness: 0.06, bumpScale: 0.07 },
+        "pearl-glaze": { color: 0xf1ece5, roughness: 0.18, metalness: 0.05, bumpScale: 0.03 },
+        charcoal: { color: 0x363940, roughness: 0.78, metalness: 0.04, bumpScale: 0.08 },
+        "smooth-sand": { color: 0xcbc1b0, roughness: 0.74, metalness: 0.01, bumpScale: 0.05 },
+      };
+      const cfg = presets[type] || presets.concrete;
+      const texture = generateTexture(type);
+      texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+      texture.repeat.set(2, 2);
+
+      const material = new THREE.MeshStandardMaterial({
+        color: cfg.color,
+        roughness: cfg.roughness,
+        metalness: cfg.metalness,
+        map: texture,
+        bumpMap: texture,
+        bumpScale: cfg.bumpScale,
+        side: THREE.DoubleSide,
       });
-
-      const ys = profile.map(([, y]) => y);
-      const rs = profile.map(([r]) => r);
-      return {
-        rings,
-        minY: Math.min(...ys),
-        maxY: Math.max(...ys),
-        maxRadius: Math.max(...rs) + Math.max(0, numberValue("texture_strength")),
-      };
+      return material;
     }
 
-    function rotatePoint(p) {
-      const cy = Math.cos(yaw);
-      const sy = Math.sin(yaw);
-      const cp = Math.cos(pitch);
-      const sp = Math.sin(pitch);
+    function initScene() {
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0xf5f7fb);
 
-      const x1 = (p.x * cy) - (p.z * sy);
-      const z1 = (p.x * sy) + (p.z * cy);
-      const y2 = (p.y * cp) - (z1 * sp);
-      const z2 = (p.y * sp) + (z1 * cp);
+      ambient = new THREE.AmbientLight(0xffffff, 0.75);
+      scene.add(ambient);
 
-      return { x: x1, y: y2, z: z2 };
+      const directional = new THREE.DirectionalLight(0xffffff, 0.65);
+      directional.position.set(2, 4, 3);
+      scene.add(directional);
+
+      const fill = new THREE.DirectionalLight(0xffffff, 0.25);
+      fill.position.set(-2, -1, -3);
+      scene.add(fill);
     }
 
-    function projectPoint(p, w, h, scale) {
-      const depth = 380;
-      const persp = depth / (depth + p.z + 200);
-      return {
-        x: (w * 0.5) + (p.x * scale * persp),
-        y: (h * 0.6) - (p.y * scale * persp),
-      };
+    function initRenderer() {
+      renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      renderer.setClearColor(0xf5f7fb, 1);
     }
 
-    function draw() {
-      if (!ctx) {
-        return;
+    function initCamera() {
+      const width = canvas.clientWidth;
+      const height = canvas.clientHeight;
+      camera = new THREE.PerspectiveCamera(32, width / height, 0.1, 1000);
+      camera.position.set(0, 0.6, 1.9);
+      camera.lookAt(0, 0.4, 0);
+    }
+
+    function resizeRenderer() {
+      const width = Math.max(1, canvas.clientWidth);
+      const height = Math.max(1, canvas.clientHeight);
+      renderer.setSize(width, height, false);
+      camera.aspect = width / height;
+      camera.updateProjectionMatrix();
+    }
+
+    function renderScene() {
+      renderer.render(scene, camera);
+    }
+
+    function setModel() {
+      if (modelMesh) {
+        scene.remove(modelMesh);
+        modelMesh.geometry.dispose();
+        modelMesh.material.dispose();
       }
-      const w = canvas.clientWidth;
-      const h = canvas.clientHeight;
-      ctx.clearRect(0, 0, w, h);
-
-      const heightMm = Math.max(1, meshData.maxY - meshData.minY);
-      const fit = Math.min(w, h) * 0.33;
-      const scale = (fit / Math.max(meshData.maxRadius, heightMm * 0.55)) * zoom;
-
-      ctx.strokeStyle = "rgba(35, 40, 56, 0.7)";
-      ctx.lineWidth = 1.4;
-
-      for (const ring of meshData.rings) {
-        ctx.beginPath();
-        for (let i = 0; i < ring.length; i++) {
-          const shifted = {
-            x: ring[i].x,
-            y: ring[i].y - meshData.minY,
-            z: ring[i].z,
-          };
-          const p = projectPoint(rotatePoint(shifted), w, h, scale);
-          if (i === 0) ctx.moveTo(p.x, p.y);
-          else ctx.lineTo(p.x, p.y);
-        }
-        ctx.closePath();
-        ctx.stroke();
-      }
-
-      const columns = Math.min(28, meshData.rings[0]?.length || 0);
-      for (let c = 0; c < columns; c++) {
-        const idx = Math.floor((c / columns) * (meshData.rings[0].length - 1));
-        ctx.beginPath();
-        for (let r = 0; r < meshData.rings.length; r++) {
-          const point = meshData.rings[r][idx];
-          const shifted = { x: point.x, y: point.y - meshData.minY, z: point.z };
-          const p = projectPoint(rotatePoint(shifted), w, h, scale);
-          if (r === 0) ctx.moveTo(p.x, p.y);
-          else ctx.lineTo(p.x, p.y);
-        }
-        ctx.stroke();
-      }
-    }
-
-    function resize() {
-      const width = Math.max(1, Math.floor(canvas.clientWidth));
-      const height = Math.max(1, Math.floor(canvas.clientHeight));
-      const dpr = Math.min(2, window.devicePixelRatio || 1);
-      canvas.width = Math.floor(width * dpr);
-      canvas.height = Math.floor(height * dpr);
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      draw();
+      const geometry = buildGeometry();
+      const material = createMaterial();
+      modelMesh = new THREE.Mesh(geometry, material);
+      scene.add(modelMesh);
+      const box = new THREE.Box3().setFromObject(modelMesh);
+      const radius = box.getBoundingSphere(new THREE.Sphere()).radius;
+      camera.position.set(0, radius * 0.55, radius * 2.2);
+      camera.lookAt(0, radius * 0.4, 0);
+      renderScene();
     }
 
     function updatePreview() {
       try {
         previewError.textContent = "";
-        meshData = buildLatheWireframe();
-        draw();
+        if (!renderer) {
+          initRenderer();
+          initCamera();
+          initScene();
+        }
+        setModel();
       } catch (error) {
         previewError.textContent = error?.message || "Preview error.";
       }
@@ -545,32 +651,38 @@
       lastX = e.clientX;
       lastY = e.clientY;
       yaw += dx * 0.01;
-      pitch = Math.max(-1.2, Math.min(0.5, pitch + (dy * 0.01)));
-      draw();
+      pitch = Math.max(-1.2, Math.min(0.6, pitch + dy * 0.01));
+      if (modelMesh) {
+        modelMesh.rotation.y = yaw;
+        modelMesh.rotation.x = pitch;
+        renderScene();
+      }
     });
 
     canvas.addEventListener("wheel", (e) => {
       e.preventDefault();
       zoom *= e.deltaY > 0 ? 0.92 : 1.08;
-      zoom = Math.max(0.4, Math.min(3.5, zoom));
-      draw();
+      zoom = Math.max(0.5, Math.min(2.4, zoom));
+      camera.position.setLength(zoom * 2.2);
+      renderScene();
     }, { passive: false });
+
+    function onWindowResize() {
+      if (!renderer) return;
+      resizeRenderer();
+      renderScene();
+    }
 
     let sourceVersion = null;
     async function pollSourceVersion() {
       try {
         const response = await fetch("/__version__", { cache: "no-store" });
-        if (!response.ok) {
-          return;
-        }
+        if (!response.ok) return;
         const payload = await response.json();
         const currentVersion = Number(payload.version);
         if (Number.isFinite(currentVersion)) {
-          if (sourceVersion === null) {
-            sourceVersion = currentVersion;
-          } else if (currentVersion > sourceVersion + 0.1) {
-            window.location.reload(true);
-          }
+          if (sourceVersion === null) sourceVersion = currentVersion;
+          else if (currentVersion > sourceVersion + 0.1) window.location.reload(true);
         }
       } catch {
         // ignore intermittent failures while editing files
@@ -582,8 +694,7 @@
       element.addEventListener("change", updatePreview);
     }
 
-    window.addEventListener("resize", resize);
-    resize();
+    window.addEventListener("resize", onWindowResize);
     updatePreview();
     pollSourceVersion();
     setInterval(pollSourceVersion, 1800);
