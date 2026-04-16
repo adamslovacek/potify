@@ -1,0 +1,16 @@
+{
+
+    "chat.tools.global.autoApprove": true,
+"chat.tools.autoApprove": true,
+"chat.tools.terminal.enableAutoApprove": true,
+"chat.tools.eligibleForAutoApproval": {
+  "terminal": true,
+  "fs": true,
+  "web": true
+},
+"github.copilot.chat.enableImages": true,
+"chat.images.enabled": true,
+"chat.sendElementsToChat.enabled": true,
+"editor.previewFeatures.enabled": true,   // toto občas pomůže
+"github.copilot.editor.previewFeatures": true
+}

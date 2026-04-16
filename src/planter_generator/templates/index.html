@@ -1,0 +1,592 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Planter Sleeve Generator</title>
+  <style>
+    :root {
+      --bg: #f2f4f7;
+      --panel: #ffffff;
+      --ink: #242b33;
+      --muted: #6c7382;
+      --line: #d8dce2;
+      --button: #373f4a;
+      --button-text: #f8fafc;
+      --input-bg: #f9fafe;
+      --input-ink: #23272f;
+      --input-border: #dfe3ea;
+      --shadow: 0 24px 68px rgba(31, 41, 55, 0.12);
+      --panel-shadow: 0 14px 40px rgba(31, 41, 55, 0.08);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Inter", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+      color: var(--ink);
+      background: radial-gradient(circle at top left, #f7f9fb 0%, #eceff4 45%, #eef2f7 100%);
+    }
+    .card {
+      width: 100vw;
+      height: 100vh;
+      margin: 0;
+      background: var(--bg);
+      border: 0;
+      border-radius: 0;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      display: grid;
+      grid-template-rows: auto 1fr;
+      animation: rise 360ms ease-out;
+    }
+    @keyframes rise {
+      from { transform: translateY(12px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+    header {
+      background: transparent;
+      color: var(--ink);
+      padding: 20px 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(222, 227, 233, 0.9);
+    }
+    header h1 {
+      margin: 0;
+      font-size: 1.2rem;
+      letter-spacing: 0.02em;
+      font-weight: 800;
+    }
+    header p {
+      margin: 0;
+      font-size: 0.95rem;
+      color: var(--muted);
+    }
+    .content {
+      padding: 24px 28px 32px;
+      height: 100%;
+    }
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1.55fr) minmax(280px, 0.45fr);
+      gap: 20px;
+      align-items: stretch;
+      height: 100%;
+    }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      padding: 24px;
+      box-shadow: var(--panel-shadow);
+    }
+    .panel h2 {
+      margin: 0 0 16px;
+      font-size: 1rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--ink);
+      font-weight: 700;
+    }
+    .error {
+      background: #f8e9e3;
+      color: #8e2a1b;
+      border: 1px solid #f1c4b6;
+      padding: 14px 16px;
+      border-radius: 18px;
+      margin-bottom: 18px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 14px;
+    }
+    label {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--ink);
+    }
+    input, select {
+      border: 1px solid var(--input-border);
+      border-radius: 16px;
+      padding: 14px 16px;
+      font-size: 0.95rem;
+      background: var(--input-bg);
+      color: var(--input-ink);
+      transition: border-color 150ms ease, background-color 150ms ease, box-shadow 150ms ease;
+    }
+    input:focus, select:focus {
+      outline: none;
+      border-color: #a5b0c3;
+      background: #ffffff;
+      box-shadow: 0 0 0 4px rgba(162, 175, 193, 0.12);
+    }
+    .actions {
+      margin-top: 18px;
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    button {
+      border: none;
+      border-radius: 16px;
+      padding: 14px 22px;
+      font-size: 0.95rem;
+      font-weight: 700;
+      cursor: pointer;
+      color: var(--button-text);
+      background: linear-gradient(135deg, #3c4450 0%, #252b37 100%);
+      box-shadow: 0 12px 22px rgba(35, 42, 57, 0.16);
+      transition: transform 150ms ease, box-shadow 150ms ease;
+    }
+    button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 14px 26px rgba(35, 42, 57, 0.2);
+    }
+    .muted {
+      align-self: center;
+      color: var(--muted);
+      font-size: 0.92rem;
+      line-height: 1.45;
+    }
+    .preview-wrap {
+      height: calc(100% - 12px);
+      min-height: 520px;
+      border-radius: 24px;
+      border: 1px solid var(--line);
+      background: #f5f7fb;
+      position: relative;
+      overflow: hidden;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.35);
+    }
+    #preview-canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      background: linear-gradient(180deg, #f8fafc 0%, #e9eef5 100%);
+    }
+    .preview-meta {
+      margin-top: 14px;
+      color: var(--muted);
+      font-size: 0.9rem;
+      line-height: 1.5;
+    }
+    .preview-panel {
+      display: grid;
+      grid-template-rows: auto 1fr auto auto;
+      min-height: 0;
+    }
+    .menu-panel {
+      overflow: auto;
+    }
+    .section-heading {
+      border-top: 1px solid #e8ebf0;
+      padding-top: 18px;
+      margin-top: 18px;
+    }
+    .section-heading h3 {
+      margin: 0 0 12px;
+      font-size: 0.92rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: #47515f;
+    }
+    .preview-error {
+      color: #7a2a14;
+      font-size: 0.88rem;
+      min-height: 1.2em;
+      margin-top: 8px;
+    }
+    .texture-section {
+      display: none;
+    }
+    @media (max-width: 980px) {
+      .layout { grid-template-columns: 1fr; }
+      .menu-panel { max-height: 46vh; }
+      .preview-wrap { min-height: 54vh; }
+    }
+    @media (max-width: 780px) {
+      header { flex-direction: column; align-items: flex-start; gap: 10px; }
+      header h1 { font-size: 1.45rem; }
+      header p { font-size: 0.92rem; }
+      .content { padding: 16px 18px 24px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <header>
+      <h1>Planter Sleeve Generator</h1>
+      <p>Browser UI for generating 3D-printable planter sleeves in STL and 3MF.</p>
+    </header>
+
+    <section class="content">
+      {% if error %}
+      <div class="error">{{ error }}</div>
+      {% endif %}
+
+      <div class="layout">
+        <aside class="panel preview-panel">
+          <h2>Live 3D Preview</h2>
+          <div class="preview-wrap">
+            <canvas id="preview-canvas"></canvas>
+          </div>
+          <div class="preview-meta">Drag to rotate. Scroll to zoom. The preview follows current form values.</div>
+          <div id="preview-error" class="preview-error"></div>
+        </aside>
+
+        <form method="post" action="/generate" class="panel menu-panel">
+          <h2>Generator Settings</h2>
+          <div class="grid">
+            <label>
+              Pot diameter (mm)
+              <input name="pot_diameter" type="number" step="0.1" min="1" value="{{ values.pot_diameter }}" required>
+            </label>
+            <label>
+              Clearance (mm)
+              <input name="clearance" type="number" step="0.1" value="{{ values.clearance }}" required>
+            </label>
+            <label>
+              Height (mm)
+              <input name="height" type="number" step="0.1" min="1" value="{{ values.height }}" required>
+            </label>
+            <label>
+              Wall thickness (mm)
+              <input name="wall" type="number" step="0.1" min="0.2" value="{{ values.wall }}" required>
+            </label>
+            <label>
+              Base thickness (mm)
+              <input name="base" type="number" step="0.1" min="0.2" value="{{ values.base }}" required>
+            </label>
+            <label>
+              Taper (deg)
+              <input name="taper" type="number" step="0.1" value="{{ values.taper }}" required>
+            </label>
+            <label>
+              Rim lip (mm)
+              <input name="rim_lip" type="number" step="0.1" min="0" value="{{ values.rim_lip }}" required>
+            </label>
+            <div class="section-heading texture-section"><h3>Texture controls</h3></div>
+            <label class="texture-section">
+              Texture type
+              <select name="texture_type" required>
+                <option value="none" {% if values.texture_type == "none" %}selected{% endif %}>None</option>
+                <option value="rings" {% if values.texture_type == "rings" %}selected{% endif %}>Rings</option>
+                <option value="spiral" {% if values.texture_type == "spiral" %}selected{% endif %}>Spiral</option>
+                <option value="grid" {% if values.texture_type == "grid" %}selected{% endif %}>Grid</option>
+              </select>
+            </label>
+            <label class="texture-section">
+              Texture strength (mm)
+              <input name="texture_strength" type="number" step="0.1" min="0" max="5" value="{{ values.texture_strength }}" required>
+            </label>
+            <label class="texture-section">
+              Texture scale
+              <input name="texture_scale" type="number" step="0.1" min="0.5" max="8" value="{{ values.texture_scale }}" required>
+            </label>
+            <label class="texture-section">
+              Texture rotation (deg)
+              <input name="texture_rotation" type="number" step="1" min="0" max="360" value="{{ values.texture_rotation }}" required>
+            </label>
+            <label>
+              Mesh sections
+              <input name="sections" type="number" step="1" min="24" value="{{ values.sections }}" required>
+            </label>
+            <label>
+              Export format
+              <select name="format" required>
+                <option value="stl" {% if values.format == "stl" %}selected{% endif %}>STL</option>
+                <option value="3mf" {% if values.format == "3mf" %}selected{% endif %}>3MF</option>
+                <option value="both" {% if values.format == "both" %}selected{% endif %}>Both (ZIP)</option>
+              </select>
+            </label>
+        </div>
+
+          <div class="actions">
+            <button type="submit">Generate And Download</button>
+            <span class="muted">For both formats, files are returned as a ZIP archive.</span>
+          </div>
+        </form>
+      </div>
+    </section>
+  </main>
+  <script>
+    const canvas = document.getElementById("preview-canvas");
+    const ctx = canvas.getContext("2d");
+    const previewError = document.getElementById("preview-error");
+    const form = document.querySelector("form[action='/generate']");
+    const inputNames = [
+      "pot_diameter", "clearance", "height", "wall", "base", "taper", "rim_lip",
+      "texture_type", "texture_strength", "texture_scale", "texture_rotation", "sections"
+    ];
+    const inputs = Object.fromEntries(inputNames.map((name) => [name, form.querySelector(`[name='${name}']`)]));
+
+    let meshData = { rings: [], minY: 0, maxY: 1, maxRadius: 1 };
+    let yaw = 0.9;
+    let pitch = -0.35;
+    let zoom = 1.0;
+    let dragging = false;
+    let lastX = 0;
+    let lastY = 0;
+
+    function numberValue(name) {
+      const value = Number(inputs[name]?.value);
+      if (!Number.isFinite(value)) {
+        throw new Error(`${name} is invalid`);
+      }
+      return value;
+    }
+
+    function textureOffset(z, theta) {
+      const type = inputs.texture_type.value;
+      const strength = numberValue("texture_strength");
+      const scale = Math.max(0.1, numberValue("texture_scale"));
+      const rotation = (numberValue("texture_rotation") * Math.PI) / 180.0;
+      const phase = theta + rotation;
+      const scaledZ = (z / Math.max(1, numberValue("height"))) * scale;
+      const frequency = Math.max(1, scale);
+
+      if (type === "rings") {
+        return strength * Math.sin(scaledZ * Math.PI * 2.0);
+      }
+      if (type === "spiral") {
+        return strength * Math.sin(frequency * phase + scaledZ * Math.PI * 2.0);
+      }
+      if (type === "grid") {
+        const a = Math.sin(frequency * phase);
+        const b = Math.sin(scaledZ * Math.PI * 2.0);
+        return strength * a * b * 0.55;
+      }
+      return 0;
+    }
+
+    function buildProfile() {
+      const pot = numberValue("pot_diameter");
+      const clearance = numberValue("clearance");
+      const height = numberValue("height");
+      const wall = numberValue("wall");
+      const base = numberValue("base");
+      const taperDeg = numberValue("taper");
+      const rimLip = numberValue("rim_lip");
+
+      const innerDiameter = pot + (2.0 * clearance);
+      const taper = Math.tan((taperDeg * Math.PI) / 180.0);
+      const zBase = base;
+      const zTop = height;
+      const zLip = Math.max(zBase, zTop - wall);
+      const rInnerAtBase = innerDiameter / 2.0;
+
+      const rInner = (z) => rInnerAtBase + (taper * (z - zBase));
+      const rOuter = (z) => rInner(z) + wall;
+
+      const rO0 = rOuter(0.0);
+      const rOb = rOuter(zBase);
+      const rOl = rOuter(zLip);
+      const rOt = rOuter(zTop);
+      const rIt = rInner(zTop);
+      const rLt = rOt + rimLip;
+      const rLl = rOl + rimLip;
+
+      const radii = [rO0, rOb, rOl, rOt, rIt, rLt, rLl];
+      if (radii.some((r) => r <= 0) || base <= 0 || wall <= 0 || height <= base) {
+        throw new Error("Invalid dimensions for preview.");
+      }
+
+      return [
+        [rO0, 0.0],
+        [rOb, zBase],
+        [rOl, zLip],
+        [rLl, zLip],
+        [rLt, zTop],
+        [rIt, zTop],
+        [rInnerAtBase, zBase],
+      ];
+    }
+
+    function buildLatheWireframe() {
+      const sections = Math.max(24, Math.floor(numberValue("sections")));
+      const profile = buildProfile();
+      const rings = profile.map(([radius, y]) => {
+        const pts = [];
+        for (let i = 0; i < sections; i++) {
+          const a = (i / sections) * Math.PI * 2.0;
+          let radiusOffset = textureOffset(y, a);
+          const r = Math.max(0.05, radius + radiusOffset);
+          pts.push({
+            x: Math.cos(a) * r,
+            y,
+            z: Math.sin(a) * r,
+          });
+        }
+        return pts;
+      });
+
+      const ys = profile.map(([, y]) => y);
+      const rs = profile.map(([r]) => r);
+      return {
+        rings,
+        minY: Math.min(...ys),
+        maxY: Math.max(...ys),
+        maxRadius: Math.max(...rs) + Math.max(0, numberValue("texture_strength")),
+      };
+    }
+
+    function rotatePoint(p) {
+      const cy = Math.cos(yaw);
+      const sy = Math.sin(yaw);
+      const cp = Math.cos(pitch);
+      const sp = Math.sin(pitch);
+
+      const x1 = (p.x * cy) - (p.z * sy);
+      const z1 = (p.x * sy) + (p.z * cy);
+      const y2 = (p.y * cp) - (z1 * sp);
+      const z2 = (p.y * sp) + (z1 * cp);
+
+      return { x: x1, y: y2, z: z2 };
+    }
+
+    function projectPoint(p, w, h, scale) {
+      const depth = 380;
+      const persp = depth / (depth + p.z + 200);
+      return {
+        x: (w * 0.5) + (p.x * scale * persp),
+        y: (h * 0.6) - (p.y * scale * persp),
+      };
+    }
+
+    function draw() {
+      if (!ctx) {
+        return;
+      }
+      const w = canvas.clientWidth;
+      const h = canvas.clientHeight;
+      ctx.clearRect(0, 0, w, h);
+
+      const heightMm = Math.max(1, meshData.maxY - meshData.minY);
+      const fit = Math.min(w, h) * 0.33;
+      const scale = (fit / Math.max(meshData.maxRadius, heightMm * 0.55)) * zoom;
+
+      ctx.strokeStyle = "rgba(35, 40, 56, 0.7)";
+      ctx.lineWidth = 1.4;
+
+      for (const ring of meshData.rings) {
+        ctx.beginPath();
+        for (let i = 0; i < ring.length; i++) {
+          const shifted = {
+            x: ring[i].x,
+            y: ring[i].y - meshData.minY,
+            z: ring[i].z,
+          };
+          const p = projectPoint(rotatePoint(shifted), w, h, scale);
+          if (i === 0) ctx.moveTo(p.x, p.y);
+          else ctx.lineTo(p.x, p.y);
+        }
+        ctx.closePath();
+        ctx.stroke();
+      }
+
+      const columns = Math.min(28, meshData.rings[0]?.length || 0);
+      for (let c = 0; c < columns; c++) {
+        const idx = Math.floor((c / columns) * (meshData.rings[0].length - 1));
+        ctx.beginPath();
+        for (let r = 0; r < meshData.rings.length; r++) {
+          const point = meshData.rings[r][idx];
+          const shifted = { x: point.x, y: point.y - meshData.minY, z: point.z };
+          const p = projectPoint(rotatePoint(shifted), w, h, scale);
+          if (r === 0) ctx.moveTo(p.x, p.y);
+          else ctx.lineTo(p.x, p.y);
+        }
+        ctx.stroke();
+      }
+    }
+
+    function resize() {
+      const width = Math.max(1, Math.floor(canvas.clientWidth));
+      const height = Math.max(1, Math.floor(canvas.clientHeight));
+      const dpr = Math.min(2, window.devicePixelRatio || 1);
+      canvas.width = Math.floor(width * dpr);
+      canvas.height = Math.floor(height * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      draw();
+    }
+
+    function updatePreview() {
+      try {
+        previewError.textContent = "";
+        meshData = buildLatheWireframe();
+        draw();
+      } catch (error) {
+        previewError.textContent = error?.message || "Preview error.";
+      }
+    }
+
+    canvas.addEventListener("pointerdown", (e) => {
+      dragging = true;
+      lastX = e.clientX;
+      lastY = e.clientY;
+      canvas.setPointerCapture(e.pointerId);
+    });
+
+    canvas.addEventListener("pointerup", (e) => {
+      dragging = false;
+      canvas.releasePointerCapture(e.pointerId);
+    });
+
+    canvas.addEventListener("pointermove", (e) => {
+      if (!dragging) return;
+      const dx = e.clientX - lastX;
+      const dy = e.clientY - lastY;
+      lastX = e.clientX;
+      lastY = e.clientY;
+      yaw += dx * 0.01;
+      pitch = Math.max(-1.2, Math.min(0.5, pitch + (dy * 0.01)));
+      draw();
+    });
+
+    canvas.addEventListener("wheel", (e) => {
+      e.preventDefault();
+      zoom *= e.deltaY > 0 ? 0.92 : 1.08;
+      zoom = Math.max(0.4, Math.min(3.5, zoom));
+      draw();
+    }, { passive: false });
+
+    let sourceVersion = null;
+    async function pollSourceVersion() {
+      try {
+        const response = await fetch("/__version__", { cache: "no-store" });
+        if (!response.ok) {
+          return;
+        }
+        const payload = await response.json();
+        const currentVersion = Number(payload.version);
+        if (Number.isFinite(currentVersion)) {
+          if (sourceVersion === null) {
+            sourceVersion = currentVersion;
+          } else if (currentVersion > sourceVersion + 0.1) {
+            window.location.reload(true);
+          }
+        }
+      } catch {
+        // ignore intermittent failures while editing files
+      }
+    }
+
+    for (const element of Object.values(inputs)) {
+      element.addEventListener("input", updatePreview);
+      element.addEventListener("change", updatePreview);
+    }
+
+    window.addEventListener("resize", resize);
+    resize();
+    updatePreview();
+    pollSourceVersion();
+    setInterval(pollSourceVersion, 1800);
+  </script>
+</body>
+</html>

@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "planter-sleeve-generator"
+version = "0.1.0"
+description = "Generate 3D-printable planter sleeve models and export STL/3MF"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "trimesh>=4.11.0",
+    "lxml>=5.0.0",
+    "networkx>=3.0",
+    "flask>=3.0.0",
+]
+
+[project.scripts]
+planter-gen = "planter_generator.cli:main"
+planter-web = "planter_generator.web:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
