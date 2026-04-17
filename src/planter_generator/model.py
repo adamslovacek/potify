@@ -38,6 +38,7 @@ class GeneratorConfig:
     texture_strength_mm: float = 0.6
     texture_scale: float = 2.0
     texture_rotation_deg: float = 0.0
+    middle_inbound_turns: float = 0.0
     sections: int = 192
     height_steps: int = 48
 
@@ -62,6 +63,8 @@ class GeneratorConfig:
             raise ValueError("texture_strength_mm must be >= 0")
         if self.texture_scale <= 0:
             raise ValueError("texture_scale must be > 0")
+        if self.middle_inbound_turns < 0 or self.middle_inbound_turns > 50:
+            raise ValueError("middle_inbound_turns must be in range [0, 50]")
         if self.sections < 24:
             raise ValueError("sections must be >= 24")
         if self.height_steps < 8:
@@ -77,6 +80,11 @@ def _lerp(z0: float, r0: float, z1: float, r1: float, z: float) -> float:
 
 def _effective_base_z(config: GeneratorConfig) -> float:
     return config.base_thickness_mm if config.include_bottom else 0.0
+
+
+def _middle_inbound_angle(z: float, height: float, config: GeneratorConfig) -> float:
+    z_ratio = z / max(1e-6, height)
+    return (2.0 * pi) * config.middle_inbound_turns * z_ratio
 
 
 def _outer_base_radius(z: float, config: GeneratorConfig) -> float:
@@ -207,12 +215,14 @@ def _build_planter_mesh(config: GeneratorConfig) -> trimesh.Trimesh:
     outer_rings = []
     for z in z_levels:
         radius_base = _outer_base_radius(z, config)
+        rotation_angle = _middle_inbound_angle(z, z_top, config)
         ring = []
         for i in range(sections):
             theta = (i / sections) * (2.0 * pi)
             offset = _texture_offset(z, theta, config)
             ring_radius = max(0.05, radius_base + offset)
-            ring.append((ring_radius * cos(theta), z, ring_radius * sin(theta)))
+            theta_rotated = theta + rotation_angle
+            ring.append((ring_radius * cos(theta_rotated), z, ring_radius * sin(theta_rotated)))
         outer_rings.append(ring)
 
     inner_z_levels = sorted(set([
@@ -223,7 +233,15 @@ def _build_planter_mesh(config: GeneratorConfig) -> trimesh.Trimesh:
     inner_rings = []
     for z in inner_z_levels:
         radius = _inner_base_radius(z, config)
-        ring = [(radius * cos((i / sections) * (2.0 * pi)), z, radius * sin((i / sections) * (2.0 * pi))) for i in range(sections)]
+        rotation_angle = _middle_inbound_angle(z, z_top, config)
+        ring = [
+            (
+                radius * cos(((i / sections) * (2.0 * pi)) + rotation_angle),
+                z,
+                radius * sin(((i / sections) * (2.0 * pi)) + rotation_angle),
+            )
+            for i in range(sections)
+        ]
         inner_rings.append(ring)
 
     vertices: list[tuple[float, float, float]] = []
@@ -267,7 +285,11 @@ def _build_planter_mesh(config: GeneratorConfig) -> trimesh.Trimesh:
 
 def build_planter_sleeve(config: GeneratorConfig) -> trimesh.Trimesh:
     config.validate()
-    if config.texture_type == TextureType.NONE and config.include_bottom:
+    if (
+        config.texture_type == TextureType.NONE
+        and config.include_bottom
+        and config.middle_inbound_turns == 0
+    ):
         z_base = _effective_base_z(config)
         z_top = config.height_mm
         z_lip = max(z_base, z_top - config.wall_thickness_mm)

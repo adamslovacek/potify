@@ -57,6 +57,18 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Extra outer lip around top rim in mm (default: 1.2).",
     )
     parser.add_argument(
+        "--middle-inbound",
+        type=float,
+        default=0.0,
+        help="Total number of middle-inbound turns along model height in range 0..50 (default: 0).",
+    )
+    parser.add_argument(
+        "--twist-turns",
+        dest="middle_inbound",
+        type=float,
+        help="Legacy alias for --middle-inbound.",
+    )
+    parser.add_argument(
         "--sections",
         type=int,
         default=192,
@@ -93,6 +105,7 @@ def main() -> int:
         include_bottom=not args.no_bottom,
         taper_deg=args.taper,
         rim_lip_mm=args.rim_lip,
+        middle_inbound_turns=args.middle_inbound,
         sections=args.sections,
     )
 

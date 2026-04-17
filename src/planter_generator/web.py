@@ -54,6 +54,7 @@ def create_app() -> Flask:
         "texture_strength": "0.7",
         "texture_scale": "2.0",
         "texture_rotation": "0",
+        "middle_inbound_turns": "0",
         "sections": "192",
         "format": "stl",
     }
@@ -69,12 +70,15 @@ def create_app() -> Flask:
         "texture_strength": _to_float,
         "texture_scale": _to_float,
         "texture_rotation": _to_float,
+        "middle_inbound_turns": _to_float,
         "sections": _to_int,
     }
 
     def merged_form_data() -> dict[str, str]:
         form = {**defaults, **request.form.to_dict()}
         form["include_bottom"] = "on" if request.form.get("include_bottom") else ""
+        if (not form.get("middle_inbound_turns")) and form.get("twist_turns"):
+            form["middle_inbound_turns"] = form.get("twist_turns", "0")
         return form
 
     def normalize_config_payload(form: dict[str, str]) -> dict[str, object]:
@@ -110,6 +114,7 @@ def create_app() -> Flask:
                 texture_strength_mm=_to_float(form.get("texture_strength"), "texture_strength"),
                 texture_scale=_to_float(form.get("texture_scale"), "texture_scale"),
                 texture_rotation_deg=_to_float(form.get("texture_rotation"), "texture_rotation"),
+                middle_inbound_turns=_to_float(form.get("middle_inbound_turns"), "middle_inbound_turns"),
                 sections=_to_int(form.get("sections"), "sections"),
             )
             fmt = ExportFormat(export_choice)
@@ -175,6 +180,7 @@ def create_app() -> Flask:
                 texture_strength_mm=payload["texture_strength"],
                 texture_scale=payload["texture_scale"],
                 texture_rotation_deg=payload["texture_rotation"],
+                middle_inbound_turns=payload["middle_inbound_turns"],
                 sections=payload["sections"],
             ).validate()
             ExportFormat(str(payload["format"]))
