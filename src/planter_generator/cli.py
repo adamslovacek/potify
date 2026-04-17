@@ -89,8 +89,8 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--sections",
         type=int,
-        default=192,
-        help="Circular resolution segments (default: 192).",
+        default=6,
+        help="Number of sides (n) for polygon/star shape (default: 6).",
     )
     parser.add_argument(
         "--format",

@@ -47,7 +47,7 @@ class GeneratorConfig:
     z_rotation_deg: float = 0.0
     shape_type: ShapeType = ShapeType.POLYGON
     star_inner_ratio: float = 0.5
-    sections: int = 256
+    sections: int = 6
     height_steps: int = 64
 
     def validate(self) -> None:
@@ -77,8 +77,8 @@ class GeneratorConfig:
             raise ValueError("z_rotation_deg absolute value must be <= 3600")
         if self.star_inner_ratio < 0.1 or self.star_inner_ratio > 0.9:
             raise ValueError("star_inner_ratio must be in range [0.1, 0.9]")
-        if self.sections < 24:
-            raise ValueError("sections must be >= 24")
+        if self.sections < 3:
+            raise ValueError("sections must be >= 3")
         if self.height_steps < 8:
             raise ValueError("height_steps must be >= 8")
 
@@ -236,7 +236,7 @@ def _build_planter_mesh(config: GeneratorConfig) -> trimesh.Trimesh:
     z_base = _effective_base_z(config)
     z_top = config.height_mm
     z_lip = max(z_base, z_top - config.wall_thickness_mm)
-    sections = max(24, int(config.sections))
+    sections = max(3, int(config.sections))
     height_steps = max(8, int(config.height_steps))
     z_levels = sorted(set([
         0.0,

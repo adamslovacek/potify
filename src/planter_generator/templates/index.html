@@ -274,7 +274,9 @@
       <div class="header-actions">
         <button type="submit" form="generator-form" formaction="/generate" formmethod="post" name="format" value="stl">Export STL</button>
         <button type="submit" form="generator-form" formaction="/generate" formmethod="post" name="format" value="3mf">Export 3MF</button>
+        <button type="button" id="load-config-btn" class="button-secondary">Load JSON</button>
         <button type="submit" form="generator-form" formaction="/save-config" formmethod="post" class="button-secondary">Save JSON</button>
+        <input id="load-config-input" type="file" accept="application/json,.json" style="display:none">
       </div>
     </header>
 
@@ -293,6 +295,7 @@
 
         <form id="generator-form" method="post" action="/generate" class="panel menu-panel">
           <div class="grid">
+            <div class="section-heading"><h3>Geometry controls</h3></div>
             <label>
               Pot diameter (mm)
               <input name="pot_diameter" type="number" step="0.1" min="1" value="{{ values.pot_diameter }}" required>
@@ -337,6 +340,18 @@
               Star inner ratio (0.1–0.9)
               <input name="star_inner_ratio" type="number" step="0.05" min="0.1" max="0.9" value="{{ values.star_inner_ratio }}" required>
             </label>
+            <label>
+              Middle inbound (0-50, step 0.1)
+              <input name="middle_inbound_turns" type="number" step="0.1" min="0" max="50" value="{{ values.middle_inbound_turns or values.twist_turns or '0' }}" required>
+            </label>
+            <label>
+              Z twist at top (deg)
+              <input name="z_rotation" type="number" step="1" min="-3600" max="3600" value="{{ values.z_rotation or '0' }}" required>
+            </label>
+            <label>
+              Number of sides (n) for polygon/star
+              <input name="sections" type="number" step="1" min="3" value="{{ values.sections }}" required>
+            </label>
             <div class="section-heading texture-section"><h3>Texture controls</h3></div>
             <label class="texture-section">
               Texture type
@@ -368,14 +383,6 @@
             <label class="texture-section">
               Texture rotation (deg)
               <input name="texture_rotation" type="number" step="1" min="0" max="360" value="{{ values.texture_rotation }}" required>
-            </label>
-            <label class="texture-section">
-              Middle inbound (0-50)
-              <input name="middle_inbound_turns" type="number" step="0.1" min="0" max="50" value="{{ values.middle_inbound_turns or values.twist_turns or '0' }}" required>
-            </label>
-            <label class="texture-section">
-              Z twist at top (deg)
-              <input name="z_rotation" type="number" step="1" min="-3600" max="3600" value="{{ values.z_rotation or '0' }}" required>
             </label>
             <label>
               Material style
@@ -410,10 +417,6 @@
                 </optgroup>
               </select>
             </label>
-            <label>
-              Mesh sections
-              <input name="sections" type="number" step="1" min="24" value="{{ values.sections }}" required>
-            </label>
         </div>
 
           <div class="actions">
@@ -438,6 +441,8 @@
     const canvas = document.getElementById("preview-canvas");
     const previewError = document.getElementById("preview-error");
     const form = document.querySelector("form[action='/generate']");
+    const loadConfigButton = document.getElementById("load-config-btn");
+    const loadConfigInput = document.getElementById("load-config-input");
     
     if (!canvas) {
       console.error("Canvas element not found!");
@@ -448,6 +453,43 @@
     }
     if (!form) {
       console.error("Form not found!");
+    }
+
+    function applyLoadedConfig(data) {
+      for (const [name, element] of Object.entries(inputs)) {
+        if (!element || !(name in data)) continue;
+        if (element.type === "checkbox") {
+          element.checked = !!data[name];
+          continue;
+        }
+        element.value = String(data[name]);
+      }
+
+      // Keep backward compatibility with older config exports.
+      if (("twist_turns" in data) && !("middle_inbound_turns" in data) && inputs.middle_inbound_turns) {
+        inputs.middle_inbound_turns.value = String(data.twist_turns);
+      }
+
+      updatePreview();
+    }
+
+    async function handleConfigFileSelection(event) {
+      const file = event.target.files?.[0];
+      if (!file) return;
+      try {
+        const raw = await file.text();
+        const parsed = JSON.parse(raw);
+        applyLoadedConfig(parsed);
+        if (previewError) previewError.textContent = "";
+      } catch (error) {
+        console.error("Failed to load JSON config:", error);
+        if (previewError) {
+          previewError.textContent = `Load config error: ${error?.message || "Invalid JSON file"}`;
+        }
+      } finally {
+        // Allow selecting the same file repeatedly.
+        event.target.value = "";
+      }
     }
     
     const inputNames = [
@@ -681,7 +723,7 @@
     }
 
     function buildGeometry() {
-      const sections = Math.max(24, Math.floor(numberValue("sections")));
+      const sections = Math.max(3, Math.floor(numberValue("sections")));
       const shapeType = inputs.shape_type?.value || "polygon";
       const starInnerRatio = shapeType === "star" ? Math.max(0.1, Math.min(0.9, numberValue("star_inner_ratio"))) : 1.0;
       const pointCount = shapeType === "star" ? sections * 2 : sections;
@@ -1196,6 +1238,11 @@
         element.addEventListener("input", updatePreview);
         element.addEventListener("change", updatePreview);
       }
+    }
+
+    if (loadConfigButton && loadConfigInput) {
+      loadConfigButton.addEventListener("click", () => loadConfigInput.click());
+      loadConfigInput.addEventListener("change", handleConfigFileSelection);
     }
 
     window.addEventListener("resize", onWindowResize);

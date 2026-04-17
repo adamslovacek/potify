@@ -59,7 +59,7 @@ def create_app() -> Flask:
         "z_rotation": "0",
         "shape_type": "polygon",
         "star_inner_ratio": "0.5",
-        "sections": "256",
+        "sections": "6",
         "format": "stl",
     }
 
