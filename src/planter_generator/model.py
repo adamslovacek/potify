@@ -44,6 +44,7 @@ class GeneratorConfig:
     texture_scale: float = 2.0
     texture_rotation_deg: float = 0.0
     middle_inbound_turns: float = 0.0
+    middle_inbound_z_mm: float | None = None
     z_rotation_deg: float = 0.0
     shape_type: ShapeType = ShapeType.POLYGON
     star_inner_ratio: float = 0.5
@@ -73,6 +74,10 @@ class GeneratorConfig:
             raise ValueError("texture_scale must be > 0")
         if self.middle_inbound_turns < 0 or self.middle_inbound_turns > 50:
             raise ValueError("middle_inbound_turns must be in range [0, 50]")
+        if self.middle_inbound_z_mm is not None and (
+            self.middle_inbound_z_mm < 0 or self.middle_inbound_z_mm > self.height_mm
+        ):
+            raise ValueError("middle_inbound_z_mm must be in range [0, height_mm]")
         if abs(self.z_rotation_deg) > 3600:
             raise ValueError("z_rotation_deg absolute value must be <= 3600")
         if self.star_inner_ratio < 0.1 or self.star_inner_ratio > 0.9:
@@ -95,7 +100,10 @@ def _effective_base_z(config: GeneratorConfig) -> float:
 
 
 def _middle_inbound_angle(z: float, height: float, config: GeneratorConfig) -> float:
-    z_ratio = z / max(1e-6, height)
+    anchor_z = config.middle_inbound_z_mm
+    if anchor_z is None:
+        anchor_z = height * 0.5
+    z_ratio = (z - anchor_z) / max(1e-6, height)
     return (2.0 * pi) * config.middle_inbound_turns * z_ratio
 
 

@@ -56,6 +56,7 @@ def create_app() -> Flask:
         "texture_scale": "2.0",
         "texture_rotation": "0",
         "middle_inbound_turns": "0",
+        "middle_inbound_z": "67.5",
         "z_rotation": "0",
         "shape_type": "polygon",
         "star_inner_ratio": "0.5",
@@ -75,6 +76,7 @@ def create_app() -> Flask:
         "texture_scale": _to_float,
         "texture_rotation": _to_float,
         "middle_inbound_turns": _to_float,
+        "middle_inbound_z": _to_float,
         "z_rotation": _to_float,
         "star_inner_ratio": _to_float,
         "sections": _to_int,
@@ -122,6 +124,7 @@ def create_app() -> Flask:
                 texture_scale=_to_float(form.get("texture_scale"), "texture_scale"),
                 texture_rotation_deg=_to_float(form.get("texture_rotation"), "texture_rotation"),
                 middle_inbound_turns=_to_float(form.get("middle_inbound_turns"), "middle_inbound_turns"),
+                middle_inbound_z_mm=_to_float(form.get("middle_inbound_z"), "middle_inbound_z"),
                 z_rotation_deg=_to_float(form.get("z_rotation"), "z_rotation"),
                 shape_type=ShapeType(form.get("shape_type", "polygon")),
                 star_inner_ratio=_to_float(form.get("star_inner_ratio"), "star_inner_ratio"),
@@ -191,6 +194,7 @@ def create_app() -> Flask:
                 texture_scale=payload["texture_scale"],
                 texture_rotation_deg=payload["texture_rotation"],
                 middle_inbound_turns=payload["middle_inbound_turns"],
+                middle_inbound_z_mm=payload["middle_inbound_z"],
                 z_rotation_deg=payload["z_rotation"],
                 shape_type=ShapeType(payload["shape_type"]),
                 star_inner_ratio=payload["star_inner_ratio"],
@@ -217,8 +221,12 @@ def create_app() -> Flask:
 
 
 def main() -> int:
+    import argparse
+    parser = argparse.ArgumentParser(description="Run the Planter Generator web server.")
+    parser.add_argument('--port', type=int, default=5001, help='Port to run the server on (default: 5001)')
+    args = parser.parse_args()
     app = create_app()
-    app.run(host="0.0.0.0", port=5001, debug=True)
+    app.run(host="0.0.0.0", port=args.port, debug=True)
     return 0
 
 

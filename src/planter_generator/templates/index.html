@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Planter Sleeve Generator</title>
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
   <style>
     :root {
       --bg: #ffffff;
@@ -147,6 +148,31 @@
       flex-wrap: wrap;
       justify-content: flex-end;
     }
+    .preset-control {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      background: #eef2f7;
+      border: 1px solid #d5dde8;
+      border-radius: 14px;
+      padding: 6px;
+    }
+    .preset-control select {
+      min-width: 220px;
+      height: 36px;
+      border-radius: 10px;
+      padding: 6px 10px;
+      font-size: 0.85rem;
+      border: 1px solid #c2cfdf;
+      background: #ffffff;
+    }
+    .preset-control button {
+      padding: 8px 10px;
+      border-radius: 10px;
+      font-size: 0.78rem;
+      min-height: 36px;
+      box-shadow: none;
+    }
     .header-actions button {
       padding: 8px 12px;
       border-radius: 13px;
@@ -215,17 +241,50 @@
       max-height: calc(100vh - 112px);
       padding-right: 6px;
     }
-    .section-heading {
-      border-top: 1px solid #e8ebf0;
-      padding-top: 18px;
-      margin-top: 18px;
+    .menu-group {
+      border: 1px solid #e2e8f0;
+      border-radius: 16px;
+      background: #ffffff;
+      overflow: hidden;
     }
-    .section-heading h3 {
-      margin: 0 0 12px;
-      font-size: 0.92rem;
-      letter-spacing: 0.14em;
+    .menu-group + .menu-group {
+      margin-top: 10px;
+    }
+    .menu-group summary {
+      list-style: none;
+      cursor: pointer;
+      user-select: none;
+      padding: 14px 16px;
+      font-size: 0.84rem;
+      letter-spacing: 0.12em;
       text-transform: uppercase;
-      color: #47515f;
+      color: #334155;
+      font-weight: 700;
+      border-bottom: 1px solid transparent;
+      background: #f8fafc;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .menu-group summary::-webkit-details-marker {
+      display: none;
+    }
+    .menu-group summary::after {
+      content: "+";
+      font-size: 1.1rem;
+      line-height: 1;
+      color: #64748b;
+    }
+    .menu-group[open] summary {
+      border-bottom-color: #e2e8f0;
+    }
+    .menu-group[open] summary::after {
+      content: "-";
+    }
+    .menu-group-body {
+      padding: 14px 16px 16px;
+      display: grid;
+      gap: 14px;
     }
     .preview-error {
       color: #7a2a14;
@@ -260,6 +319,8 @@
       header h1 { font-size: 1.45rem; }
       header p { font-size: 0.92rem; }
       .header-actions { width: 100%; justify-content: flex-start; }
+      .preset-control { width: 100%; }
+      .preset-control select { min-width: 0; flex: 1; }
       .content { padding: 16px 18px 24px; }
     }
   </style>
@@ -272,6 +333,40 @@
         <p>Browser UI for generating 3D-printable planter sleeves in STL and 3MF.</p>
       </div>
       <div class="header-actions">
+        <div class="preset-control">
+          <select id="preset-select" aria-label="Preset models">
+            <option value="">Preset models...</option>
+            <optgroup label="Minimal Forms">
+              <option value="mono_column">Mono Column</option>
+              <option value="calm_taper">Calm Taper</option>
+              <option value="open_air_tube">Open Air Tube</option>
+              <option value="gallery_edge">Gallery Edge</option>
+              <option value="quiet_stone">Quiet Stone</option>
+            </optgroup>
+            <optgroup label="Organic Flow">
+              <option value="sea_spiral">Sea Spiral</option>
+              <option value="leaf_braid">Leaf Braid</option>
+              <option value="soft_hex">Soft Hex</option>
+              <option value="flowing_rings">Flowing Rings</option>
+              <option value="petal_star">Petal Star</option>
+            </optgroup>
+            <optgroup label="Industrial Edge">
+              <option value="forge_stack">Forge Stack</option>
+              <option value="steel_torque">Steel Torque</option>
+              <option value="basalt_grid">Basalt Grid</option>
+              <option value="charcoal_frame">Charcoal Frame</option>
+              <option value="oxide_twist">Oxide Twist</option>
+            </optgroup>
+            <optgroup label="Statement Pieces">
+              <option value="crown_star">Crown Star</option>
+              <option value="raku_flame">Raku Flame</option>
+              <option value="terra_spire">Terra Spire</option>
+              <option value="pearl_wave">Pearl Wave</option>
+              <option value="monolith_x">Monolith X</option>
+            </optgroup>
+          </select>
+          <button type="button" id="apply-preset-btn" class="button-secondary">Apply preset</button>
+        </div>
         <button type="submit" form="generator-form" formaction="/generate" formmethod="post" name="format" value="stl">Export STL</button>
         <button type="submit" form="generator-form" formaction="/generate" formmethod="post" name="format" value="3mf">Export 3MF</button>
         <button type="button" id="load-config-btn" class="button-secondary">Load JSON</button>
@@ -295,128 +390,153 @@
 
         <form id="generator-form" method="post" action="/generate" class="panel menu-panel">
           <div class="grid">
-            <div class="section-heading"><h3>Geometry controls</h3></div>
-            <label>
-              Pot diameter (mm)
-              <input name="pot_diameter" type="number" step="0.1" min="1" value="{{ values.pot_diameter }}" required>
-            </label>
-            <label>
-              Clearance (mm)
-              <input name="clearance" type="number" step="0.1" value="{{ values.clearance }}" required>
-            </label>
-            <label>
-              Height (mm)
-              <input name="height" type="number" step="0.1" min="1" value="{{ values.height }}" required>
-            </label>
-            <label>
-              Wall thickness (mm)
-              <input name="wall" type="number" step="0.1" min="0.2" value="{{ values.wall }}" required>
-            </label>
-            <label>
-              Base thickness (mm)
-              <input name="base" type="number" step="0.1" min="0.2" value="{{ values.base }}" required>
-            </label>
-            <label class="toggle-label">
-              <input name="include_bottom" type="checkbox" {% if values.include_bottom %}checked{% endif %}>
-              Include bottom
-            </label>
-            <div class="toggle-caption">Enabled by default. Disable for an open-bottom sleeve.</div>
-            <label>
-              Taper (deg)
-              <input name="taper" type="number" step="0.1" value="{{ values.taper }}" required>
-            </label>
-            <label>
-              Rim lip (mm)
-              <input name="rim_lip" type="number" step="0.1" min="0" value="{{ values.rim_lip }}" required>
-            </label>
-            <label>
-              Shape type
-              <select name="shape_type" required>
-                <option value="polygon" {% if values.shape_type == "polygon" %}selected{% endif %}>Polygon (n-sided)</option>
-                <option value="star" {% if values.shape_type == "star" %}selected{% endif %}>Star</option>
-              </select>
-            </label>
-            <label>
-              Star inner ratio (0.1–0.9)
-              <input name="star_inner_ratio" type="number" step="0.05" min="0.1" max="0.9" value="{{ values.star_inner_ratio }}" required>
-            </label>
-            <label>
-              Middle inbound (0-50, step 0.1)
-              <input name="middle_inbound_turns" type="number" step="0.1" min="0" max="50" value="{{ values.middle_inbound_turns or values.twist_turns or '0' }}" required>
-            </label>
-            <label>
-              Z twist at top (deg)
-              <input name="z_rotation" type="number" step="1" min="-3600" max="3600" value="{{ values.z_rotation or '0' }}" required>
-            </label>
-            <label>
-              Number of sides (n) for polygon/star
-              <input name="sections" type="number" step="1" min="3" value="{{ values.sections }}" required>
-            </label>
-            <div class="section-heading texture-section"><h3>Texture controls</h3></div>
-            <label class="texture-section">
-              Texture type
-              <select name="texture_type" required>
-                <optgroup label="Flat">
-                  <option value="none" {% if values.texture_type == "none" %}selected{% endif %}>None</option>
-                </optgroup>
-                <optgroup label="Linear">
-                  <option value="rings" {% if values.texture_type == "rings" %}selected{% endif %}>Rings</option>
-                  <option value="micro_rings" {% if values.texture_type == "micro_rings" %}selected{% endif %}>Micro Rings</option>
-                  <option value="spiral" {% if values.texture_type == "spiral" %}selected{% endif %}>Spiral</option>
-                  <option value="braid" {% if values.texture_type == "braid" %}selected{% endif %}>Braid</option>
-                </optgroup>
-                <optgroup label="Patterned">
-                  <option value="grid" {% if values.texture_type == "grid" %}selected{% endif %}>Grid</option>
-                  <option value="hex" {% if values.texture_type == "hex" %}selected{% endif %}>Hex Cell</option>
-                  <option value="hammered" {% if values.texture_type == "hammered" %}selected{% endif %}>Hammered</option>
-                </optgroup>
-              </select>
-            </label>
-            <label class="texture-section">
-              Texture strength (mm)
-              <input name="texture_strength" type="number" step="0.1" min="0" max="5" value="{{ values.texture_strength }}" required>
-            </label>
-            <label class="texture-section">
-              Texture scale
-              <input name="texture_scale" type="number" step="0.1" min="0.5" max="8" value="{{ values.texture_scale }}" required>
-            </label>
-            <label class="texture-section">
-              Texture rotation (deg)
-              <input name="texture_rotation" type="number" step="1" min="0" max="360" value="{{ values.texture_rotation }}" required>
-            </label>
-            <label>
-              Material style
-              <select name="material_type" required>
-                <optgroup label="Stone & Concrete">
-                  <option value="concrete">Light concrete</option>
-                  <option value="dark-stone">Dark stone</option>
-                  <option value="sandstone">Sandstone</option>
-                  <option value="slate">Slate finish</option>
-                  <option value="terrazzo">Terrazzo</option>
-                  <option value="basalt">Basalt</option>
-                  <option value="weathered-concrete">Weathered concrete</option>
-                </optgroup>
-                <optgroup label="Ceramic & Clay">
-                  <option value="glossy-ceramic">Glossy ceramic</option>
-                  <option value="pearl-glaze">Pearl glaze</option>
-                  <option value="porcelain-speckle">Porcelain speckle</option>
-                  <option value="terracotta">Terracotta</option>
-                  <option value="raku">Raku crackle</option>
-                </optgroup>
-                <optgroup label="Metal & Industrial">
-                  <option value="brushed-metal">Brushed metal</option>
-                  <option value="oxidized-copper">Oxidized copper</option>
-                  <option value="worn-steel">Worn steel</option>
-                  <option value="matte-black">Matte black</option>
-                  <option value="charcoal">Charcoal</option>
-                </optgroup>
-                <optgroup label="Natural & Composite">
-                  <option value="smooth-sand">Smooth sand</option>
-                  <option value="travertine">Travertine</option>
-                  <option value="micro-cement">Micro cement</option>
-                </optgroup>
-              </select>
-            </label>
+            <details class="menu-group" open>
+              <summary>Geometry basic</summary>
+              <div class="menu-group-body">
+                <label>
+                  Pot diameter (mm)
+                  <input name="pot_diameter" type="number" step="0.1" min="1" value="{{ values.pot_diameter }}" required>
+                </label>
+                <label>
+                  Clearance (mm)
+                  <input name="clearance" type="number" step="0.1" value="{{ values.clearance }}" required>
+                </label>
+                <label>
+                  Height (mm)
+                  <input name="height" type="number" step="0.1" min="1" value="{{ values.height }}" required>
+                </label>
+                <label>
+                  Wall thickness (mm)
+                  <input name="wall" type="number" step="0.1" min="0.2" value="{{ values.wall }}" required>
+                </label>
+                <label>
+                  Base thickness (mm)
+                  <input name="base" type="number" step="0.1" min="0.2" value="{{ values.base }}" required>
+                </label>
+                <label class="toggle-label">
+                  <input name="include_bottom" type="checkbox" {% if values.include_bottom %}checked{% endif %}>
+                  Include bottom
+                </label>
+                <div class="toggle-caption">Enabled by default. Disable for an open-bottom sleeve.</div>
+                <label>
+                  Taper (deg)
+                  <input name="taper" type="number" step="0.1" value="{{ values.taper }}" required>
+                </label>
+                <label>
+                  Rim lip (mm)
+                  <input name="rim_lip" type="number" step="0.1" min="0" value="{{ values.rim_lip }}" required>
+                </label>
+              </div>
+            </details>
+
+            <details class="menu-group">
+              <summary>Geometry advanced</summary>
+              <div class="menu-group-body">
+                <label>
+                  Shape type
+                  <select name="shape_type" required>
+                    <option value="polygon" {% if values.shape_type == "polygon" %}selected{% endif %}>Polygon (n-sided)</option>
+                    <option value="star" {% if values.shape_type == "star" %}selected{% endif %}>Star</option>
+                  </select>
+                </label>
+                <label>
+                  Star inner ratio (0.1–0.9)
+                  <input name="star_inner_ratio" type="number" step="0.05" min="0.1" max="0.9" value="{{ values.star_inner_ratio }}" required>
+                </label>
+                <label>
+                  Middle inbound (0-50, step 0.1)
+                  <input name="middle_inbound_turns" type="number" step="0.1" min="0" max="50" value="{{ values.middle_inbound_turns or values.twist_turns or '0' }}" required>
+                </label>
+                <label>
+                  Middle inbound position on Z (mm)
+                  <input name="middle_inbound_z" type="number" step="0.1" min="0" value="{{ values.middle_inbound_z }}" required>
+                </label>
+                <label>
+                  Z twist at top (deg)
+                  <input name="z_rotation" type="number" step="1" min="-3600" max="3600" value="{{ values.z_rotation or '0' }}" required>
+                </label>
+                <label>
+                  Number of sides (n) for polygon/star
+                  <input name="sections" type="number" step="1" min="3" value="{{ values.sections }}" required>
+                </label>
+              </div>
+            </details>
+
+            <details class="menu-group">
+              <summary>Texture controls</summary>
+              <div class="menu-group-body">
+                <label>
+                  Texture type
+                  <select name="texture_type" required>
+                    <optgroup label="Flat">
+                      <option value="none" {% if values.texture_type == "none" %}selected{% endif %}>None</option>
+                    </optgroup>
+                    <optgroup label="Linear">
+                      <option value="rings" {% if values.texture_type == "rings" %}selected{% endif %}>Rings</option>
+                      <option value="micro_rings" {% if values.texture_type == "micro_rings" %}selected{% endif %}>Micro Rings</option>
+                      <option value="spiral" {% if values.texture_type == "spiral" %}selected{% endif %}>Spiral</option>
+                      <option value="braid" {% if values.texture_type == "braid" %}selected{% endif %}>Braid</option>
+                    </optgroup>
+                    <optgroup label="Patterned">
+                      <option value="grid" {% if values.texture_type == "grid" %}selected{% endif %}>Grid</option>
+                      <option value="hex" {% if values.texture_type == "hex" %}selected{% endif %}>Hex Cell</option>
+                      <option value="hammered" {% if values.texture_type == "hammered" %}selected{% endif %}>Hammered</option>
+                    </optgroup>
+                  </select>
+                </label>
+                <label>
+                  Texture strength (mm)
+                  <input name="texture_strength" type="number" step="0.1" min="0" max="5" value="{{ values.texture_strength }}" required>
+                </label>
+                <label>
+                  Texture scale
+                  <input name="texture_scale" type="number" step="0.1" min="0.5" max="8" value="{{ values.texture_scale }}" required>
+                </label>
+                <label>
+                  Texture rotation (deg)
+                  <input name="texture_rotation" type="number" step="1" min="0" max="360" value="{{ values.texture_rotation }}" required>
+                </label>
+              </div>
+            </details>
+
+            <details class="menu-group">
+              <summary>Material style</summary>
+              <div class="menu-group-body">
+                <label>
+                  Material style
+                  <select name="material_type" required>
+                    <optgroup label="Stone & Concrete">
+                      <option value="concrete">Light concrete</option>
+                      <option value="dark-stone">Dark stone</option>
+                      <option value="sandstone">Sandstone</option>
+                      <option value="slate">Slate finish</option>
+                      <option value="terrazzo">Terrazzo</option>
+                      <option value="basalt">Basalt</option>
+                      <option value="weathered-concrete">Weathered concrete</option>
+                    </optgroup>
+                    <optgroup label="Ceramic & Clay">
+                      <option value="glossy-ceramic">Glossy ceramic</option>
+                      <option value="pearl-glaze">Pearl glaze</option>
+                      <option value="porcelain-speckle">Porcelain speckle</option>
+                      <option value="terracotta">Terracotta</option>
+                      <option value="raku">Raku crackle</option>
+                    </optgroup>
+                    <optgroup label="Metal & Industrial">
+                      <option value="brushed-metal">Brushed metal</option>
+                      <option value="oxidized-copper">Oxidized copper</option>
+                      <option value="worn-steel">Worn steel</option>
+                      <option value="matte-black">Matte black</option>
+                      <option value="charcoal">Charcoal</option>
+                    </optgroup>
+                    <optgroup label="Natural & Composite">
+                      <option value="smooth-sand">Smooth sand</option>
+                      <option value="travertine">Travertine</option>
+                      <option value="micro-cement">Micro cement</option>
+                    </optgroup>
+                  </select>
+                </label>
+              </div>
+            </details>
         </div>
 
           <div class="actions">
@@ -443,6 +563,8 @@
     const form = document.querySelector("form[action='/generate']");
     const loadConfigButton = document.getElementById("load-config-btn");
     const loadConfigInput = document.getElementById("load-config-input");
+    const presetSelect = document.getElementById("preset-select");
+    const applyPresetButton = document.getElementById("apply-preset-btn");
     
     if (!canvas) {
       console.error("Canvas element not found!");
@@ -473,6 +595,41 @@
       updatePreview();
     }
 
+    const PRESETS = {
+      mono_column: { pot_diameter: 140, clearance: 1.2, height: 150, wall: 3.0, base: 4.0, include_bottom: true, taper: 0.8, rim_lip: 0.8, shape_type: "polygon", star_inner_ratio: 0.5, middle_inbound_turns: 0.0, middle_inbound_z: 75, z_rotation: 0, sections: 6, texture_type: "none", texture_strength: 0.6, texture_scale: 2.0, texture_rotation: 0, material_type: "micro-cement" },
+      calm_taper: { pot_diameter: 148, clearance: 1.4, height: 165, wall: 3.2, base: 4.2, include_bottom: true, taper: 2.4, rim_lip: 1.0, shape_type: "polygon", star_inner_ratio: 0.5, middle_inbound_turns: 0.0, middle_inbound_z: 82.5, z_rotation: 25, sections: 7, texture_type: "rings", texture_strength: 0.5, texture_scale: 1.6, texture_rotation: 30, material_type: "smooth-sand" },
+      open_air_tube: { pot_diameter: 132, clearance: 1.0, height: 135, wall: 2.8, base: 3.5, include_bottom: false, taper: 1.0, rim_lip: 0.6, shape_type: "polygon", star_inner_ratio: 0.5, middle_inbound_turns: 0.2, middle_inbound_z: 67.5, z_rotation: 10, sections: 8, texture_type: "none", texture_strength: 0.4, texture_scale: 2.0, texture_rotation: 0, material_type: "concrete" },
+      gallery_edge: { pot_diameter: 155, clearance: 1.8, height: 175, wall: 3.4, base: 4.5, include_bottom: true, taper: 1.6, rim_lip: 2.0, shape_type: "polygon", star_inner_ratio: 0.5, middle_inbound_turns: 0.6, middle_inbound_z: 90, z_rotation: 45, sections: 10, texture_type: "micro_rings", texture_strength: 0.6, texture_scale: 2.3, texture_rotation: 18, material_type: "slate" },
+      quiet_stone: { pot_diameter: 145, clearance: 1.3, height: 160, wall: 3.1, base: 4.0, include_bottom: true, taper: 1.2, rim_lip: 1.1, shape_type: "polygon", star_inner_ratio: 0.5, middle_inbound_turns: 0.4, middle_inbound_z: 78, z_rotation: 20, sections: 9, texture_type: "hammered", texture_strength: 0.7, texture_scale: 1.8, texture_rotation: 35, material_type: "dark-stone" },
+
+      sea_spiral: { pot_diameter: 138, clearance: 1.2, height: 152, wall: 3.0, base: 4.0, include_bottom: true, taper: 1.3, rim_lip: 1.0, shape_type: "polygon", star_inner_ratio: 0.5, middle_inbound_turns: 2.8, middle_inbound_z: 68, z_rotation: 220, sections: 8, texture_type: "spiral", texture_strength: 0.8, texture_scale: 2.6, texture_rotation: 25, material_type: "travertine" },
+      leaf_braid: { pot_diameter: 150, clearance: 1.5, height: 170, wall: 3.2, base: 4.1, include_bottom: true, taper: 1.9, rim_lip: 1.3, shape_type: "polygon", star_inner_ratio: 0.5, middle_inbound_turns: 2.2, middle_inbound_z: 74, z_rotation: 180, sections: 9, texture_type: "braid", texture_strength: 0.9, texture_scale: 2.1, texture_rotation: 40, material_type: "weathered-concrete" },
+      soft_hex: { pot_diameter: 142, clearance: 1.2, height: 158, wall: 3.0, base: 4.0, include_bottom: true, taper: 1.5, rim_lip: 1.0, shape_type: "polygon", star_inner_ratio: 0.5, middle_inbound_turns: 1.7, middle_inbound_z: 79, z_rotation: 120, sections: 6, texture_type: "hex", texture_strength: 0.7, texture_scale: 1.7, texture_rotation: 15, material_type: "sandstone" },
+      flowing_rings: { pot_diameter: 136, clearance: 1.1, height: 148, wall: 2.9, base: 3.8, include_bottom: true, taper: 1.1, rim_lip: 0.9, shape_type: "polygon", star_inner_ratio: 0.5, middle_inbound_turns: 1.9, middle_inbound_z: 73, z_rotation: 90, sections: 7, texture_type: "rings", texture_strength: 0.8, texture_scale: 2.9, texture_rotation: 60, material_type: "concrete" },
+      petal_star: { pot_diameter: 146, clearance: 1.4, height: 168, wall: 3.2, base: 4.2, include_bottom: true, taper: 1.8, rim_lip: 1.5, shape_type: "star", star_inner_ratio: 0.62, middle_inbound_turns: 2.4, middle_inbound_z: 84, z_rotation: 260, sections: 6, texture_type: "micro_rings", texture_strength: 0.7, texture_scale: 2.2, texture_rotation: 20, material_type: "terracotta" },
+
+      forge_stack: { pot_diameter: 152, clearance: 1.6, height: 176, wall: 3.5, base: 4.6, include_bottom: true, taper: 0.9, rim_lip: 1.2, shape_type: "polygon", star_inner_ratio: 0.5, middle_inbound_turns: 0.9, middle_inbound_z: 80, z_rotation: 75, sections: 8, texture_type: "grid", texture_strength: 0.9, texture_scale: 2.2, texture_rotation: 45, material_type: "worn-steel" },
+      steel_torque: { pot_diameter: 144, clearance: 1.3, height: 164, wall: 3.3, base: 4.1, include_bottom: true, taper: 1.0, rim_lip: 1.0, shape_type: "polygon", star_inner_ratio: 0.5, middle_inbound_turns: 3.0, middle_inbound_z: 82, z_rotation: 420, sections: 10, texture_type: "spiral", texture_strength: 0.8, texture_scale: 2.4, texture_rotation: 25, material_type: "brushed-metal" },
+      basalt_grid: { pot_diameter: 150, clearance: 1.5, height: 172, wall: 3.4, base: 4.4, include_bottom: true, taper: 1.4, rim_lip: 1.1, shape_type: "polygon", star_inner_ratio: 0.5, middle_inbound_turns: 1.3, middle_inbound_z: 86, z_rotation: 160, sections: 6, texture_type: "grid", texture_strength: 1.0, texture_scale: 1.6, texture_rotation: 0, material_type: "basalt" },
+      charcoal_frame: { pot_diameter: 140, clearance: 1.2, height: 155, wall: 3.2, base: 4.0, include_bottom: true, taper: 0.7, rim_lip: 0.9, shape_type: "polygon", star_inner_ratio: 0.5, middle_inbound_turns: 0.8, middle_inbound_z: 77, z_rotation: 70, sections: 4, texture_type: "hammered", texture_strength: 0.9, texture_scale: 2.7, texture_rotation: 50, material_type: "charcoal" },
+      oxide_twist: { pot_diameter: 148, clearance: 1.4, height: 166, wall: 3.3, base: 4.2, include_bottom: true, taper: 1.5, rim_lip: 1.2, shape_type: "polygon", star_inner_ratio: 0.5, middle_inbound_turns: 2.6, middle_inbound_z: 70, z_rotation: 300, sections: 9, texture_type: "braid", texture_strength: 0.7, texture_scale: 2.0, texture_rotation: 35, material_type: "oxidized-copper" },
+
+      crown_star: { pot_diameter: 154, clearance: 1.8, height: 182, wall: 3.4, base: 4.8, include_bottom: true, taper: 2.2, rim_lip: 2.1, shape_type: "star", star_inner_ratio: 0.42, middle_inbound_turns: 3.8, middle_inbound_z: 90, z_rotation: 460, sections: 7, texture_type: "hex", texture_strength: 0.95, texture_scale: 1.7, texture_rotation: 10, material_type: "raku" },
+      raku_flame: { pot_diameter: 143, clearance: 1.3, height: 170, wall: 3.2, base: 4.2, include_bottom: true, taper: 1.7, rim_lip: 1.6, shape_type: "star", star_inner_ratio: 0.55, middle_inbound_turns: 3.3, middle_inbound_z: 82, z_rotation: 380, sections: 6, texture_type: "spiral", texture_strength: 1.0, texture_scale: 2.8, texture_rotation: 75, material_type: "raku" },
+      terra_spire: { pot_diameter: 151, clearance: 1.7, height: 188, wall: 3.5, base: 4.9, include_bottom: true, taper: 2.6, rim_lip: 1.9, shape_type: "polygon", star_inner_ratio: 0.5, middle_inbound_turns: 4.2, middle_inbound_z: 94, z_rotation: 520, sections: 11, texture_type: "micro_rings", texture_strength: 0.85, texture_scale: 2.5, texture_rotation: 40, material_type: "terracotta" },
+      pearl_wave: { pot_diameter: 147, clearance: 1.4, height: 174, wall: 3.1, base: 4.0, include_bottom: true, taper: 1.4, rim_lip: 1.8, shape_type: "polygon", star_inner_ratio: 0.5, middle_inbound_turns: 2.9, middle_inbound_z: 87, z_rotation: 340, sections: 10, texture_type: "rings", texture_strength: 0.7, texture_scale: 3.0, texture_rotation: 15, material_type: "pearl-glaze" },
+      monolith_x: { pot_diameter: 160, clearance: 2.0, height: 200, wall: 3.8, base: 5.0, include_bottom: true, taper: 0.5, rim_lip: 1.4, shape_type: "polygon", star_inner_ratio: 0.5, middle_inbound_turns: 1.1, middle_inbound_z: 100, z_rotation: 120, sections: 4, texture_type: "hammered", texture_strength: 1.1, texture_scale: 1.9, texture_rotation: 20, material_type: "matte-black" },
+    };
+
+    function applySelectedPreset() {
+      const key = presetSelect?.value;
+      if (!key) return;
+      const preset = PRESETS[key];
+      if (!preset) return;
+      applyLoadedConfig(preset);
+      if (previewError) previewError.textContent = "";
+    }
+
     async function handleConfigFileSelection(event) {
       const file = event.target.files?.[0];
       if (!file) return;
@@ -494,7 +651,7 @@
     
     const inputNames = [
       "pot_diameter", "clearance", "height", "wall", "base", "taper", "rim_lip",
-      "include_bottom", "shape_type", "star_inner_ratio", "texture_type", "texture_strength", "texture_scale", "texture_rotation", "middle_inbound_turns", "z_rotation", "material_type", "sections"
+      "include_bottom", "shape_type", "star_inner_ratio", "texture_type", "texture_strength", "texture_scale", "texture_rotation", "middle_inbound_turns", "middle_inbound_z", "z_rotation", "material_type", "sections"
     ];
     const inputs = Object.fromEntries(inputNames.map((name) => [name, form?.querySelector(`[name='${name}']`)]));
 
@@ -527,6 +684,23 @@
       } catch (error) {
         console.error(`Error parsing ${name}:`, error);
         throw error;
+      }
+    }
+
+    function syncMiddleInboundZBounds() {
+      if (!inputs.middle_inbound_z || !inputs.height) return;
+      const heightValue = Math.max(0, numberValue("height"));
+      inputs.middle_inbound_z.min = "0";
+      inputs.middle_inbound_z.max = String(heightValue);
+      const current = Number(inputs.middle_inbound_z.value);
+      if (!Number.isFinite(current)) {
+        inputs.middle_inbound_z.value = String((heightValue * 0.5).toFixed(1));
+        return;
+      }
+      if (current < 0) {
+        inputs.middle_inbound_z.value = "0";
+      } else if (current > heightValue) {
+        inputs.middle_inbound_z.value = String(heightValue.toFixed(1));
       }
     }
 
@@ -731,8 +905,9 @@
       const includeBottom = !!inputs.include_bottom?.checked;
       const base = numberValue("base");
       const middleInboundTurns = Math.max(0, Math.min(50, numberValue("middle_inbound_turns")));
-      const zRotationDeg = numberValue("z_rotation");
       const height = Math.max(1e-6, numberValue("height"));
+      const middleInboundZ = Math.max(0, Math.min(height, numberValue("middle_inbound_z")));
+      const zRotationDeg = numberValue("z_rotation");
       const vertices = [];
       const uvs = [];
       const indices = [];
@@ -741,8 +916,9 @@
 
       for (let i = 0; i < profile.length; i++) {
         const [radius, z] = profile[i];
+        const inboundRatio = (z - middleInboundZ) / height;
         const zRatio = z / height;
-        const rotationAtZ = (Math.PI * 2.0) * middleInboundTurns * zRatio;
+        const rotationAtZ = (Math.PI * 2.0) * middleInboundTurns * inboundRatio;
         const zTwistAtZ = ((zRotationDeg * Math.PI) / 180.0) * zRatio;
         for (let j = 0; j < pointCount; j++) {
           let theta, radiusFactor;
@@ -857,27 +1033,39 @@
         }
       }
 
+      function applyTextureContrast(contrast = 1.0) {
+        const image = ctx.getImageData(0, 0, size, size);
+        const data = image.data;
+        const factor = Math.max(0.5, contrast);
+        for (let i = 0; i < data.length; i += 4) {
+          data[i] = Math.max(0, Math.min(255, ((data[i] - 128) * factor) + 128));
+          data[i + 1] = Math.max(0, Math.min(255, ((data[i + 1] - 128) * factor) + 128));
+          data[i + 2] = Math.max(0, Math.min(255, ((data[i + 2] - 128) * factor) + 128));
+        }
+        ctx.putImageData(image, 0, 0);
+      }
+
       const styles = {
-        concrete: { base: "#b8bbc0", accent: "rgba(255,255,255,0.12)", noise: 0.04 },
-        "dark-stone": { base: "#4f545d", accent: "rgba(255,255,255,0.08)", noise: 0.08 },
-        "glossy-ceramic": { base: "#ece9e3", accent: "rgba(255,255,255,0.4)", noise: 0.02 },
-        "brushed-metal": { base: "#adb4bb", accent: "rgba(255,255,255,0.22)", noise: 0.03 },
-        "matte-black": { base: "#22252a", accent: "rgba(255,255,255,0.05)", noise: 0.04 },
-        sandstone: { base: "#d6c4a8", accent: "rgba(255,255,255,0.18)", noise: 0.06 },
-        slate: { base: "#8a92a0", accent: "rgba(255,255,255,0.12)", noise: 0.03 },
-        "pearl-glaze": { base: "#f1ece5", accent: "rgba(255,255,255,0.45)", noise: 0.02 },
-        charcoal: { base: "#363940", accent: "rgba(255,255,255,0.08)", noise: 0.06 },
-        "smooth-sand": { base: "#cbc1b0", accent: "rgba(255,255,255,0.16)", noise: 0.05 },
-        terrazzo: { base: "#d8d9d4", accent: "rgba(255,255,255,0.18)", noise: 0.03 },
-        basalt: { base: "#565e67", accent: "rgba(255,255,255,0.08)", noise: 0.08 },
-        "weathered-concrete": { base: "#a8adb3", accent: "rgba(255,255,255,0.1)", noise: 0.07 },
-        "porcelain-speckle": { base: "#f0eee8", accent: "rgba(255,255,255,0.4)", noise: 0.015 },
-        terracotta: { base: "#b8674a", accent: "rgba(255,255,255,0.1)", noise: 0.045 },
-        raku: { base: "#2f3238", accent: "rgba(255,255,255,0.22)", noise: 0.04 },
-        "oxidized-copper": { base: "#6c7f74", accent: "rgba(255,255,255,0.18)", noise: 0.05 },
-        "worn-steel": { base: "#7d858f", accent: "rgba(255,255,255,0.14)", noise: 0.04 },
-        travertine: { base: "#d7c6a7", accent: "rgba(255,255,255,0.14)", noise: 0.04 },
-        "micro-cement": { base: "#c2c6cc", accent: "rgba(255,255,255,0.12)", noise: 0.03 },
+        concrete: { base: "#b8bbc0", accent: "rgba(255,255,255,0.18)", noise: 0.04, contrast: 1.26 },
+        "dark-stone": { base: "#4f545d", accent: "rgba(255,255,255,0.11)", noise: 0.08, contrast: 1.34 },
+        "glossy-ceramic": { base: "#ece9e3", accent: "rgba(255,255,255,0.5)", noise: 0.02, contrast: 1.2 },
+        "brushed-metal": { base: "#adb4bb", accent: "rgba(255,255,255,0.28)", noise: 0.03, contrast: 1.22 },
+        "matte-black": { base: "#22252a", accent: "rgba(255,255,255,0.08)", noise: 0.04, contrast: 1.35 },
+        sandstone: { base: "#d6c4a8", accent: "rgba(255,255,255,0.21)", noise: 0.06, contrast: 1.24 },
+        slate: { base: "#8a92a0", accent: "rgba(255,255,255,0.16)", noise: 0.03, contrast: 1.25 },
+        "pearl-glaze": { base: "#f1ece5", accent: "rgba(255,255,255,0.52)", noise: 0.02, contrast: 1.18 },
+        charcoal: { base: "#363940", accent: "rgba(255,255,255,0.11)", noise: 0.06, contrast: 1.33 },
+        "smooth-sand": { base: "#cbc1b0", accent: "rgba(255,255,255,0.2)", noise: 0.05, contrast: 1.2 },
+        terrazzo: { base: "#d8d9d4", accent: "rgba(255,255,255,0.24)", noise: 0.03, contrast: 1.28 },
+        basalt: { base: "#565e67", accent: "rgba(255,255,255,0.1)", noise: 0.08, contrast: 1.38 },
+        "weathered-concrete": { base: "#a8adb3", accent: "rgba(255,255,255,0.13)", noise: 0.07, contrast: 1.29 },
+        "porcelain-speckle": { base: "#f0eee8", accent: "rgba(255,255,255,0.46)", noise: 0.015, contrast: 1.17 },
+        terracotta: { base: "#b8674a", accent: "rgba(255,255,255,0.14)", noise: 0.045, contrast: 1.27 },
+        raku: { base: "#2f3238", accent: "rgba(255,255,255,0.26)", noise: 0.04, contrast: 1.36 },
+        "oxidized-copper": { base: "#6c7f74", accent: "rgba(255,255,255,0.22)", noise: 0.05, contrast: 1.24 },
+        "worn-steel": { base: "#7d858f", accent: "rgba(255,255,255,0.2)", noise: 0.04, contrast: 1.3 },
+        travertine: { base: "#d7c6a7", accent: "rgba(255,255,255,0.18)", noise: 0.04, contrast: 1.22 },
+        "micro-cement": { base: "#c2c6cc", accent: "rgba(255,255,255,0.16)", noise: 0.03, contrast: 1.26 },
       };
 
       const style = styles[type] || styles.concrete;
@@ -999,32 +1187,39 @@
         drawMicroNoise(7800, true);
       }
 
+      ctx.globalCompositeOperation = "overlay";
+      ctx.fillStyle = style.accent;
+      ctx.fillRect(0, 0, size, size);
+      ctx.globalCompositeOperation = "source-over";
+
+      applyTextureContrast(style.contrast || 1.2);
+
       return new THREE.CanvasTexture(canvas);
     }
 
     function createMaterial() {
       const type = inputs.material_type.value;
       const presets = {
-        concrete: { color: 0xb8bcc0, roughness: 0.82, metalness: 0.05, bumpScale: 0.09 },
-        "dark-stone": { color: 0x4f545d, roughness: 0.88, metalness: 0.04, bumpScale: 0.12 },
-        "glossy-ceramic": { color: 0xece9e3, roughness: 0.22, metalness: 0.05, bumpScale: 0.02 },
-        "brushed-metal": { color: 0xadb4bb, roughness: 0.35, metalness: 0.85, bumpScale: 0.08 },
-        "matte-black": { color: 0x22252a, roughness: 0.93, metalness: 0.03, bumpScale: 0.06 },
-        sandstone: { color: 0xd6c4a8, roughness: 0.82, metalness: 0.02, bumpScale: 0.08 },
-        slate: { color: 0x8a92a0, roughness: 0.74, metalness: 0.06, bumpScale: 0.07 },
-        "pearl-glaze": { color: 0xf1ece5, roughness: 0.18, metalness: 0.05, bumpScale: 0.03 },
-        charcoal: { color: 0x363940, roughness: 0.78, metalness: 0.04, bumpScale: 0.08 },
-        "smooth-sand": { color: 0xcbc1b0, roughness: 0.74, metalness: 0.01, bumpScale: 0.05 },
-        terrazzo: { color: 0xd7d8d2, roughness: 0.66, metalness: 0.02, bumpScale: 0.12 },
-        basalt: { color: 0x565e67, roughness: 0.9, metalness: 0.03, bumpScale: 0.14 },
-        "weathered-concrete": { color: 0xa8adb3, roughness: 0.86, metalness: 0.02, bumpScale: 0.13 },
-        "porcelain-speckle": { color: 0xf0eee8, roughness: 0.28, metalness: 0.03, bumpScale: 0.05 },
-        terracotta: { color: 0xb8674a, roughness: 0.78, metalness: 0.01, bumpScale: 0.11 },
-        raku: { color: 0x2f3238, roughness: 0.52, metalness: 0.08, bumpScale: 0.14 },
-        "oxidized-copper": { color: 0x6c7f74, roughness: 0.5, metalness: 0.62, bumpScale: 0.1 },
-        "worn-steel": { color: 0x7d858f, roughness: 0.58, metalness: 0.72, bumpScale: 0.11 },
-        travertine: { color: 0xd7c6a7, roughness: 0.8, metalness: 0.01, bumpScale: 0.1 },
-        "micro-cement": { color: 0xc2c6cc, roughness: 0.8, metalness: 0.02, bumpScale: 0.09 },
+        concrete: { color: 0xb8bcc0, roughness: 0.76, metalness: 0.05, bumpScale: 0.14 },
+        "dark-stone": { color: 0x4f545d, roughness: 0.84, metalness: 0.05, bumpScale: 0.18 },
+        "glossy-ceramic": { color: 0xece9e3, roughness: 0.16, metalness: 0.05, bumpScale: 0.05 },
+        "brushed-metal": { color: 0xadb4bb, roughness: 0.28, metalness: 0.88, bumpScale: 0.12 },
+        "matte-black": { color: 0x22252a, roughness: 0.88, metalness: 0.03, bumpScale: 0.12 },
+        sandstone: { color: 0xd6c4a8, roughness: 0.76, metalness: 0.02, bumpScale: 0.14 },
+        slate: { color: 0x8a92a0, roughness: 0.68, metalness: 0.06, bumpScale: 0.12 },
+        "pearl-glaze": { color: 0xf1ece5, roughness: 0.14, metalness: 0.05, bumpScale: 0.06 },
+        charcoal: { color: 0x363940, roughness: 0.72, metalness: 0.05, bumpScale: 0.14 },
+        "smooth-sand": { color: 0xcbc1b0, roughness: 0.68, metalness: 0.01, bumpScale: 0.1 },
+        terrazzo: { color: 0xd7d8d2, roughness: 0.6, metalness: 0.03, bumpScale: 0.18 },
+        basalt: { color: 0x565e67, roughness: 0.84, metalness: 0.03, bumpScale: 0.2 },
+        "weathered-concrete": { color: 0xa8adb3, roughness: 0.8, metalness: 0.02, bumpScale: 0.18 },
+        "porcelain-speckle": { color: 0xf0eee8, roughness: 0.22, metalness: 0.03, bumpScale: 0.08 },
+        terracotta: { color: 0xb8674a, roughness: 0.72, metalness: 0.01, bumpScale: 0.16 },
+        raku: { color: 0x2f3238, roughness: 0.46, metalness: 0.09, bumpScale: 0.2 },
+        "oxidized-copper": { color: 0x6c7f74, roughness: 0.44, metalness: 0.66, bumpScale: 0.15 },
+        "worn-steel": { color: 0x7d858f, roughness: 0.5, metalness: 0.76, bumpScale: 0.16 },
+        travertine: { color: 0xd7c6a7, roughness: 0.72, metalness: 0.01, bumpScale: 0.14 },
+        "micro-cement": { color: 0xc2c6cc, roughness: 0.74, metalness: 0.02, bumpScale: 0.14 },
       };
       const cfg = presets[type] || presets.concrete;
       const texture = generateTexture(type);
@@ -1055,14 +1250,14 @@
       scene = new THREE.Scene();
       scene.background = new THREE.Color(0xffffff);
 
-      ambient = new THREE.AmbientLight(0xffffff, 0.75);
+      ambient = new THREE.AmbientLight(0xffffff, 0.58);
       scene.add(ambient);
 
-      const directional = new THREE.DirectionalLight(0xffffff, 0.65);
+      const directional = new THREE.DirectionalLight(0xffffff, 0.95);
       directional.position.set(2, 4, 3);
       scene.add(directional);
 
-      const fill = new THREE.DirectionalLight(0xffffff, 0.25);
+      const fill = new THREE.DirectionalLight(0xffffff, 0.18);
       fill.position.set(-2, -1, -3);
       scene.add(fill);
 
@@ -1172,6 +1367,7 @@
           console.warn("Canvas not available yet");
           return;
         }
+        syncMiddleInboundZBounds();
         previewError.textContent = "";
         if (!renderer) {
           console.log("Initializing preview...");
@@ -1243,6 +1439,11 @@
     if (loadConfigButton && loadConfigInput) {
       loadConfigButton.addEventListener("click", () => loadConfigInput.click());
       loadConfigInput.addEventListener("change", handleConfigFileSelection);
+    }
+
+    if (applyPresetButton && presetSelect) {
+      applyPresetButton.addEventListener("click", applySelectedPreset);
+      presetSelect.addEventListener("change", applySelectedPreset);
     }
 
     window.addEventListener("resize", onWindowResize);

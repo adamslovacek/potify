@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Planter Generator icon">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1f2937"/>
+      <stop offset="1" stop-color="#4b5563"/>
+    </linearGradient>
+    <linearGradient id="pot" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f8fafc"/>
+      <stop offset="1" stop-color="#dbe4ef"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="url(#bg)"/>
+  <path d="M16 17h32l-3 26a5 5 0 0 1-5 4H24a5 5 0 0 1-5-4z" fill="url(#pot)"/>
+  <ellipse cx="32" cy="17" rx="16" ry="5" fill="#c9d7e6"/>
+  <path d="M23 30c3-5 7-5 10 0s7 5 10 0" fill="none" stroke="#374151" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M32 12c0-3 2-5 5-6" fill="none" stroke="#86efac" stroke-width="2.5" stroke-linecap="round"/>
+  <circle cx="37" cy="5" r="2" fill="#22c55e"/>
+</svg>
