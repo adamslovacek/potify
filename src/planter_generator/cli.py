@@ -63,6 +63,12 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Total number of middle-inbound turns along model height in range 0..50 (default: 0).",
     )
     parser.add_argument(
+        "--z-rotation",
+        type=float,
+        default=0.0,
+        help="Rotate generated geometry around vertical Z axis in degrees (default: 0).",
+    )
+    parser.add_argument(
         "--twist-turns",
         dest="middle_inbound",
         type=float,
@@ -106,6 +112,7 @@ def main() -> int:
         taper_deg=args.taper,
         rim_lip_mm=args.rim_lip,
         middle_inbound_turns=args.middle_inbound,
+        z_rotation_deg=args.z_rotation,
         sections=args.sections,
     )
 

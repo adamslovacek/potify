@@ -360,6 +360,10 @@
               Middle inbound (0-50)
               <input name="middle_inbound_turns" type="number" step="0.1" min="0" max="50" value="{{ values.middle_inbound_turns or values.twist_turns or '0' }}" required>
             </label>
+            <label class="texture-section">
+              Rotate around Z (deg)
+              <input name="z_rotation" type="number" step="1" min="-3600" max="3600" value="{{ values.z_rotation or '0' }}" required>
+            </label>
             <label>
               Material style
               <select name="material_type" required>
@@ -423,7 +427,7 @@
     const form = document.querySelector("form[action='/generate']");
     const inputNames = [
       "pot_diameter", "clearance", "height", "wall", "base", "taper", "rim_lip",
-      "include_bottom", "texture_type", "texture_strength", "texture_scale", "texture_rotation", "middle_inbound_turns", "material_type", "sections"
+      "include_bottom", "texture_type", "texture_strength", "texture_scale", "texture_rotation", "middle_inbound_turns", "z_rotation", "material_type", "sections"
     ];
     const inputs = Object.fromEntries(inputNames.map((name) => [name, form.querySelector(`[name='${name}']`)]));
 
@@ -636,6 +640,7 @@
       const includeBottom = !!inputs.include_bottom?.checked;
       const base = numberValue("base");
       const middleInboundTurns = Math.max(0, Math.min(50, numberValue("middle_inbound_turns")));
+      const zRotation = (numberValue("z_rotation") * Math.PI) / 180.0;
       const height = Math.max(1e-6, numberValue("height"));
       const vertices = [];
       const uvs = [];
@@ -649,7 +654,7 @@
           const theta = (j / sections) * Math.PI * 2.0;
           const offset = textureOffset(z, theta);
           const r = Math.max(0.025, radius + offset);
-          const thetaRotated = theta + rotationAtZ;
+          const thetaRotated = theta + rotationAtZ + zRotation;
           vertices.push(r * Math.cos(thetaRotated), r * Math.sin(thetaRotated), z);
           uvs.push(j / sections, z / numberValue("height"));
         }

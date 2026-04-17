@@ -39,6 +39,7 @@ class GeneratorConfig:
     texture_scale: float = 2.0
     texture_rotation_deg: float = 0.0
     middle_inbound_turns: float = 0.0
+    z_rotation_deg: float = 0.0
     sections: int = 192
     height_steps: int = 48
 
@@ -65,6 +66,8 @@ class GeneratorConfig:
             raise ValueError("texture_scale must be > 0")
         if self.middle_inbound_turns < 0 or self.middle_inbound_turns > 50:
             raise ValueError("middle_inbound_turns must be in range [0, 50]")
+        if abs(self.z_rotation_deg) > 3600:
+            raise ValueError("z_rotation_deg absolute value must be <= 3600")
         if self.sections < 24:
             raise ValueError("sections must be >= 24")
         if self.height_steps < 8:
@@ -203,6 +206,7 @@ def _build_planter_mesh(config: GeneratorConfig) -> trimesh.Trimesh:
     z_lip = max(z_base, z_top - config.wall_thickness_mm)
     sections = max(24, int(config.sections))
     height_steps = max(8, int(config.height_steps))
+    z_rotation = radians(config.z_rotation_deg)
 
     z_levels = sorted(set([
         0.0,
@@ -222,7 +226,7 @@ def _build_planter_mesh(config: GeneratorConfig) -> trimesh.Trimesh:
             theta = (i / sections) * (2.0 * pi)
             offset = _texture_offset(z, theta, config)
             ring_radius = max(0.05, radius_base + offset)
-            theta_rotated = theta + rotation_angle
+            theta_rotated = theta + rotation_angle + z_rotation
             # Keep Z as the vertical axis; no X/Y axis rotations are applied.
             ring.append((ring_radius * cos(theta_rotated), ring_radius * sin(theta_rotated), z))
         outer_rings.append(ring)
@@ -238,8 +242,8 @@ def _build_planter_mesh(config: GeneratorConfig) -> trimesh.Trimesh:
         rotation_angle = _middle_inbound_angle(z, z_top, config)
         ring = [
             (
-                radius * cos(((i / sections) * (2.0 * pi)) + rotation_angle),
-                radius * sin(((i / sections) * (2.0 * pi)) + rotation_angle),
+                radius * cos(((i / sections) * (2.0 * pi)) + rotation_angle + z_rotation),
+                radius * sin(((i / sections) * (2.0 * pi)) + rotation_angle + z_rotation),
                 z,
             )
             for i in range(sections)
@@ -291,6 +295,7 @@ def build_planter_sleeve(config: GeneratorConfig) -> trimesh.Trimesh:
         config.texture_type == TextureType.NONE
         and config.include_bottom
         and config.middle_inbound_turns == 0
+        and config.z_rotation_deg == 0
     ):
         z_base = _effective_base_z(config)
         z_top = config.height_mm

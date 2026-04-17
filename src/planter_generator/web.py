@@ -36,7 +36,8 @@ def create_app() -> Flask:
     template_root = Path(__file__).resolve().parent / "templates"
     app = Flask(__name__, template_folder=str(template_root))
 
-    source_files = [Path(__file__).resolve(), template_root / "index.html"]
+    module_root = Path(__file__).resolve().parent
+    source_files = [Path(__file__).resolve(), module_root / "model.py", template_root / "index.html"]
 
     def current_source_version() -> float:
         return max((p.stat().st_mtime for p in source_files if p.exists()), default=0.0)
@@ -55,6 +56,7 @@ def create_app() -> Flask:
         "texture_scale": "2.0",
         "texture_rotation": "0",
         "middle_inbound_turns": "0",
+        "z_rotation": "0",
         "sections": "192",
         "format": "stl",
     }
@@ -71,6 +73,7 @@ def create_app() -> Flask:
         "texture_scale": _to_float,
         "texture_rotation": _to_float,
         "middle_inbound_turns": _to_float,
+        "z_rotation": _to_float,
         "sections": _to_int,
     }
 
@@ -115,6 +118,7 @@ def create_app() -> Flask:
                 texture_scale=_to_float(form.get("texture_scale"), "texture_scale"),
                 texture_rotation_deg=_to_float(form.get("texture_rotation"), "texture_rotation"),
                 middle_inbound_turns=_to_float(form.get("middle_inbound_turns"), "middle_inbound_turns"),
+                z_rotation_deg=_to_float(form.get("z_rotation"), "z_rotation"),
                 sections=_to_int(form.get("sections"), "sections"),
             )
             fmt = ExportFormat(export_choice)
@@ -181,6 +185,7 @@ def create_app() -> Flask:
                 texture_scale=payload["texture_scale"],
                 texture_rotation_deg=payload["texture_rotation"],
                 middle_inbound_turns=payload["middle_inbound_turns"],
+                z_rotation_deg=payload["z_rotation"],
                 sections=payload["sections"],
             ).validate()
             ExportFormat(str(payload["format"]))
