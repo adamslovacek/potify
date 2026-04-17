@@ -12,6 +12,9 @@ All source code and docs are in English.
 - Parametric cylindrical sleeve for standard nursery pots
 - Adjustable fit clearance, wall/base thickness, and taper
 - Optional top rim lip for cleaner visual finish
+- Surface texture displacement with stlTexturizer-style UV controls
+- Optional custom image displacement that bakes into STL/3MF geometry
+- Grayscale mapping controls: black/white levels, neutral gray midpoint, invert, and raise/lower mode
 - Export to STL, 3MF, or both in one command
 - Browser-based form UI for non-CLI usage
 
@@ -66,6 +69,14 @@ This command creates:
 - `--base` (default `4.0`): base thickness in mm
 - `--taper` (default `1.5`): sidewall taper in degrees
 - `--rim-lip` (default `1.2`): extra top lip width in mm
+- `--texture-type` (default `none`): `none`, `rings`, `micro_rings`, `spiral`, `braid`, `grid`, `hex`, or `hammered`
+- `--texture-strength` (default `0.6`): texture displacement depth in mm
+- `--texture-scale` (default `2.0`): legacy uniform UV scale
+- `--texture-scale-u` / `--texture-scale-v`: independent UV scaling (stlTexturizer-style)
+- `--texture-offset-u` / `--texture-offset-v`: shift texture in UV tile space
+- `--texture-rotation` (default `0`): rotate texture in degrees
+- In web UI, set texture type to `image` and upload PNG/JPG/WebP to displace the mesh surface from grayscale values
+- Grayscale mapping is configurable: choose `symmetric`, `raise`, or `lower`, then tune black/white levels and midpoint
 - `--sections` (default `192`): circular mesh resolution
 - `--format` (default `both`): `stl`, `3mf`, or `both`
 - `--output` (default `output/planter_sleeve`): output filename stem

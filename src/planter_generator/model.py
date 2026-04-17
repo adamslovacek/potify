@@ -16,6 +16,7 @@ class ExportFormat(str, Enum):
 
 class TextureType(str, Enum):
     NONE = "none"
+    IMAGE = "image"
     RINGS = "rings"
     MICRO_RINGS = "micro_rings"
     SPIRAL = "spiral"
@@ -30,6 +31,12 @@ class ShapeType(str, Enum):
     STAR = "star"
 
 
+class DisplacementMode(str, Enum):
+    SYMMETRIC = "symmetric"
+    RAISE = "raise"
+    LOWER = "lower"
+
+
 @dataclass(frozen=True)
 class GeneratorConfig:
     inner_diameter_mm: float
@@ -42,7 +49,19 @@ class GeneratorConfig:
     texture_type: TextureType = TextureType.NONE
     texture_strength_mm: float = 0.6
     texture_scale: float = 2.0
+    texture_scale_u: float | None = None
+    texture_scale_v: float | None = None
+    texture_offset_u: float = 0.0
+    texture_offset_v: float = 0.0
     texture_rotation_deg: float = 0.0
+    texture_displacement_mode: DisplacementMode = DisplacementMode.SYMMETRIC
+    texture_gray_black: float = 0.0
+    texture_gray_white: float = 1.0
+    texture_gray_midpoint: float = 0.5
+    texture_gray_invert: bool = False
+    texture_image_data: tuple[float, ...] | None = None
+    texture_image_width: int = 0
+    texture_image_height: int = 0
     middle_inbound_turns: float = 0.0
     middle_inbound_z_mm: float | None = None
     z_rotation_deg: float = 0.0
@@ -72,6 +91,23 @@ class GeneratorConfig:
             raise ValueError("texture_strength_mm must be >= 0")
         if self.texture_scale <= 0:
             raise ValueError("texture_scale must be > 0")
+        if self.texture_scale_u is not None and self.texture_scale_u <= 0:
+            raise ValueError("texture_scale_u must be > 0")
+        if self.texture_scale_v is not None and self.texture_scale_v <= 0:
+            raise ValueError("texture_scale_v must be > 0")
+        if self.texture_gray_black < 0 or self.texture_gray_black > 1:
+            raise ValueError("texture_gray_black must be in range [0, 1]")
+        if self.texture_gray_white < 0 or self.texture_gray_white > 1:
+            raise ValueError("texture_gray_white must be in range [0, 1]")
+        if self.texture_gray_midpoint <= 0 or self.texture_gray_midpoint >= 1:
+            raise ValueError("texture_gray_midpoint must be in range (0, 1)")
+        if self.texture_gray_white <= self.texture_gray_black:
+            raise ValueError("texture_gray_white must be greater than texture_gray_black")
+        if self.texture_type == TextureType.IMAGE:
+            if self.texture_image_data is None:
+                raise ValueError("texture_image_data is required when texture_type is image")
+            if self.texture_image_width <= 0 or self.texture_image_height <= 0:
+                raise ValueError("texture_image_width and texture_image_height must be > 0")
         if self.middle_inbound_turns < 0 or self.middle_inbound_turns > 50:
             raise ValueError("middle_inbound_turns must be in range [0, 50]")
         if self.middle_inbound_z_mm is not None and (
@@ -169,17 +205,91 @@ def _inner_base_radius(z: float, config: GeneratorConfig) -> float:
     return r_inner_at_base + taper * (z - z_base)
 
 
+def _texture_uv(z: float, theta: float, config: GeneratorConfig) -> tuple[float, float]:
+    scale_u = config.texture_scale_u if config.texture_scale_u is not None else config.texture_scale
+    scale_v = config.texture_scale_v if config.texture_scale_v is not None else config.texture_scale
+
+    u = (theta / (2.0 * pi)) * max(0.1, scale_u) + config.texture_offset_u
+    v = (z / max(1e-6, config.height_mm)) * max(0.1, scale_v) + config.texture_offset_v
+
+    # Rotate around texture-space center to mimic UV transform controls.
+    angle = radians(config.texture_rotation_deg)
+    c = cos(angle)
+    s = sin(angle)
+    du = u - 0.5
+    dv = v - 0.5
+    u_rot = (du * c) - (dv * s) + 0.5
+    v_rot = (du * s) + (dv * c) + 0.5
+    return u_rot, v_rot
+
+
+def _sample_texture_image(u: float, v: float, config: GeneratorConfig) -> float:
+    if config.texture_image_data is None:
+        return 0.5
+
+    width = config.texture_image_width
+    height = config.texture_image_height
+    if width <= 0 or height <= 0:
+        return 0.5
+
+    u = u % 1.0
+    v = v % 1.0
+
+    x = u * (width - 1)
+    y = v * (height - 1)
+    x0 = int(x)
+    y0 = int(y)
+    x1 = min(x0 + 1, width - 1)
+    y1 = min(y0 + 1, height - 1)
+    tx = x - x0
+    ty = y - y0
+
+    def px(ix: int, iy: int) -> float:
+        idx = iy * width + ix
+        return config.texture_image_data[idx]
+
+    a = px(x0, y0)
+    b = px(x1, y0)
+    c = px(x0, y1)
+    d = px(x1, y1)
+    top = (a * (1.0 - tx)) + (b * tx)
+    bottom = (c * (1.0 - tx)) + (d * tx)
+    return (top * (1.0 - ty)) + (bottom * ty)
+
+
+def _map_gray_to_displacement(sample: float, config: GeneratorConfig) -> float:
+    if config.texture_gray_invert:
+        sample = 1.0 - sample
+
+    black = config.texture_gray_black
+    white = config.texture_gray_white
+    normalized = (sample - black) / max(1e-6, white - black)
+    normalized = max(0.0, min(1.0, normalized))
+
+    if config.texture_displacement_mode == DisplacementMode.RAISE:
+        return normalized
+    if config.texture_displacement_mode == DisplacementMode.LOWER:
+        return -normalized
+
+    mid = config.texture_gray_midpoint
+    if normalized >= mid:
+        return (normalized - mid) / max(1e-6, 1.0 - mid)
+    return -((mid - normalized) / max(1e-6, mid))
+
+
 def _texture_offset(z: float, theta: float, config: GeneratorConfig) -> float:
     if config.texture_type == TextureType.NONE:
         return 0.0
 
     strength = config.texture_strength_mm
-    scale = max(0.1, config.texture_scale)
-    phase = radians(config.texture_rotation_deg)
-    z_ratio = z / max(1e-6, config.height_mm)
-    freq = max(1.0, scale)
-    z_angle = 2.0 * pi * freq * z_ratio
-    theta_angle = (freq * theta) + phase
+    u, v = _texture_uv(z, theta, config)
+    theta_angle = 2.0 * pi * u
+    z_angle = 2.0 * pi * v
+    phase = 0.0
+
+    if config.texture_type == TextureType.IMAGE:
+        sample = _sample_texture_image(u, v, config)
+        return strength * _map_gray_to_displacement(sample, config)
 
     if config.texture_type == TextureType.RINGS:
         base = (

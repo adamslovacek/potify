@@ -8,7 +8,7 @@ from zipfile import ZIP_DEFLATED, ZipFile
 
 from flask import Flask, render_template, request, send_file
 
-from .model import ExportFormat, GeneratorConfig, ShapeType, TextureType, build_planter_sleeve, export_model
+from .model import DisplacementMode, ExportFormat, GeneratorConfig, ShapeType, TextureType, build_planter_sleeve, export_model
 
 
 def _to_float(value: str, name: str) -> float:
@@ -30,6 +30,39 @@ def _to_bool(value: str | None) -> bool:
         return False
     normalized = str(value).strip().lower()
     return normalized in {"1", "true", "yes", "on"}
+
+
+def _extract_texture_image_payload(max_size: int = 768) -> tuple[tuple[float, ...], int, int] | None:
+    file = request.files.get("texture_image")
+    if file is None or not file.filename:
+        return None
+    try:
+        from PIL import Image
+    except Exception as exc:  # pragma: no cover
+        raise RuntimeError("Pillow is required for image displacement textures.") from exc
+
+    try:
+        image = Image.open(file.stream).convert("L")
+    except Exception as exc:
+        raise ValueError("texture_image must be a valid PNG/JPG/WebP image") from exc
+
+    w, h = image.size
+    if w <= 0 or h <= 0:
+        raise ValueError("texture_image must have non-zero dimensions")
+
+    # Keep memory and processing bounded for interactive use.
+    if max(w, h) > max_size:
+        if w >= h:
+            new_w = max_size
+            new_h = max(1, int(round((h / w) * max_size)))
+        else:
+            new_h = max_size
+            new_w = max(1, int(round((w / h) * max_size)))
+        image = image.resize((new_w, new_h), Image.Resampling.BILINEAR)
+
+    w, h = image.size
+    pixels = tuple((px / 255.0) for px in image.getdata())
+    return pixels, w, h
 
 
 def create_app() -> Flask:
@@ -54,7 +87,16 @@ def create_app() -> Flask:
         "texture_type": "none",
         "texture_strength": "0.7",
         "texture_scale": "2.0",
+        "texture_scale_u": "2.0",
+        "texture_scale_v": "2.0",
+        "texture_offset_u": "0.0",
+        "texture_offset_v": "0.0",
         "texture_rotation": "0",
+        "texture_displacement_mode": "symmetric",
+        "texture_gray_black": "0.0",
+        "texture_gray_white": "1.0",
+        "texture_gray_midpoint": "0.5",
+        "texture_gray_invert": "",
         "middle_inbound_turns": "0",
         "middle_inbound_z": "67.5",
         "z_rotation": "0",
@@ -74,7 +116,14 @@ def create_app() -> Flask:
         "rim_lip": _to_float,
         "texture_strength": _to_float,
         "texture_scale": _to_float,
+        "texture_scale_u": _to_float,
+        "texture_scale_v": _to_float,
+        "texture_offset_u": _to_float,
+        "texture_offset_v": _to_float,
         "texture_rotation": _to_float,
+        "texture_gray_black": _to_float,
+        "texture_gray_white": _to_float,
+        "texture_gray_midpoint": _to_float,
         "middle_inbound_turns": _to_float,
         "middle_inbound_z": _to_float,
         "z_rotation": _to_float,
@@ -85,8 +134,13 @@ def create_app() -> Flask:
     def merged_form_data() -> dict[str, str]:
         form = {**defaults, **request.form.to_dict()}
         form["include_bottom"] = "on" if request.form.get("include_bottom") else ""
+        form["texture_gray_invert"] = "on" if request.form.get("texture_gray_invert") else ""
         if (not form.get("middle_inbound_turns")) and form.get("twist_turns"):
             form["middle_inbound_turns"] = form.get("twist_turns", "0")
+        if (not form.get("texture_scale_u")) and form.get("texture_scale"):
+            form["texture_scale_u"] = form.get("texture_scale", "2.0")
+        if (not form.get("texture_scale_v")) and form.get("texture_scale"):
+            form["texture_scale_v"] = form.get("texture_scale", "2.0")
         return form
 
     def normalize_config_payload(form: dict[str, str]) -> dict[str, object]:
@@ -95,6 +149,8 @@ def create_app() -> Flask:
             payload[key] = parser(form.get(key), key)
         payload["include_bottom"] = _to_bool(form.get("include_bottom"))
         payload["texture_type"] = form.get("texture_type", "none")
+        payload["texture_displacement_mode"] = form.get("texture_displacement_mode", "symmetric")
+        payload["texture_gray_invert"] = _to_bool(form.get("texture_gray_invert"))
         payload["shape_type"] = form.get("shape_type", "polygon")
         payload["material_type"] = form.get("material_type", "concrete")
         payload["format"] = form.get("format", "stl")
@@ -108,6 +164,13 @@ def create_app() -> Flask:
     def generate():
         form = merged_form_data()
         export_choice = form.get("format", "stl")
+        image_payload = _extract_texture_image_payload()
+
+        image_data = None
+        image_w = 0
+        image_h = 0
+        if image_payload is not None:
+            image_data, image_w, image_h = image_payload
 
         try:
             config = GeneratorConfig(
@@ -122,7 +185,21 @@ def create_app() -> Flask:
                 texture_type=TextureType(form.get("texture_type", "none")),
                 texture_strength_mm=_to_float(form.get("texture_strength"), "texture_strength"),
                 texture_scale=_to_float(form.get("texture_scale"), "texture_scale"),
+                texture_scale_u=_to_float(form.get("texture_scale_u"), "texture_scale_u"),
+                texture_scale_v=_to_float(form.get("texture_scale_v"), "texture_scale_v"),
+                texture_offset_u=_to_float(form.get("texture_offset_u"), "texture_offset_u"),
+                texture_offset_v=_to_float(form.get("texture_offset_v"), "texture_offset_v"),
                 texture_rotation_deg=_to_float(form.get("texture_rotation"), "texture_rotation"),
+                texture_displacement_mode=DisplacementMode(
+                    form.get("texture_displacement_mode", "symmetric")
+                ),
+                texture_gray_black=_to_float(form.get("texture_gray_black"), "texture_gray_black"),
+                texture_gray_white=_to_float(form.get("texture_gray_white"), "texture_gray_white"),
+                texture_gray_midpoint=_to_float(form.get("texture_gray_midpoint"), "texture_gray_midpoint"),
+                texture_gray_invert=_to_bool(form.get("texture_gray_invert")),
+                texture_image_data=image_data,
+                texture_image_width=image_w,
+                texture_image_height=image_h,
                 middle_inbound_turns=_to_float(form.get("middle_inbound_turns"), "middle_inbound_turns"),
                 middle_inbound_z_mm=_to_float(form.get("middle_inbound_z"), "middle_inbound_z"),
                 z_rotation_deg=_to_float(form.get("z_rotation"), "z_rotation"),
@@ -180,6 +257,10 @@ def create_app() -> Flask:
         form = merged_form_data()
         try:
             payload = normalize_config_payload(form)
+            texture_type_value = TextureType(payload["texture_type"])
+            validate_texture_type = (
+                TextureType.NONE if texture_type_value == TextureType.IMAGE else texture_type_value
+            )
             # Validate generator-specific fields before exporting config.
             GeneratorConfig(
                 inner_diameter_mm=payload["pot_diameter"] + (2.0 * payload["clearance"]),
@@ -189,10 +270,19 @@ def create_app() -> Flask:
                 include_bottom=payload["include_bottom"],
                 taper_deg=payload["taper"],
                 rim_lip_mm=payload["rim_lip"],
-                texture_type=TextureType(payload["texture_type"]),
+                texture_type=validate_texture_type,
                 texture_strength_mm=payload["texture_strength"],
                 texture_scale=payload["texture_scale"],
+                texture_scale_u=payload["texture_scale_u"],
+                texture_scale_v=payload["texture_scale_v"],
+                texture_offset_u=payload["texture_offset_u"],
+                texture_offset_v=payload["texture_offset_v"],
                 texture_rotation_deg=payload["texture_rotation"],
+                texture_displacement_mode=DisplacementMode(payload["texture_displacement_mode"]),
+                texture_gray_black=payload["texture_gray_black"],
+                texture_gray_white=payload["texture_gray_white"],
+                texture_gray_midpoint=payload["texture_gray_midpoint"],
+                texture_gray_invert=payload["texture_gray_invert"],
                 middle_inbound_turns=payload["middle_inbound_turns"],
                 middle_inbound_z_mm=payload["middle_inbound_z"],
                 z_rotation_deg=payload["z_rotation"],

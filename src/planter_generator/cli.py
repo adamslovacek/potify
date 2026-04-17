@@ -57,6 +57,52 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Extra outer lip around top rim in mm (default: 1.2).",
     )
     parser.add_argument(
+        "--texture-type",
+        choices=["none", "rings", "micro_rings", "spiral", "braid", "grid", "hex", "hammered"],
+        default="none",
+        help="Surface texture pattern (default: none).",
+    )
+    parser.add_argument(
+        "--texture-strength",
+        type=float,
+        default=0.6,
+        help="Texture displacement strength in mm (default: 0.6).",
+    )
+    parser.add_argument(
+        "--texture-scale",
+        type=float,
+        default=2.0,
+        help="Legacy uniform texture scale applied to U and V (default: 2.0).",
+    )
+    parser.add_argument(
+        "--texture-scale-u",
+        type=float,
+        help="Texture scale along circumferential U axis.",
+    )
+    parser.add_argument(
+        "--texture-scale-v",
+        type=float,
+        help="Texture scale along vertical V axis.",
+    )
+    parser.add_argument(
+        "--texture-offset-u",
+        type=float,
+        default=0.0,
+        help="Texture U offset (tile space, default: 0).",
+    )
+    parser.add_argument(
+        "--texture-offset-v",
+        type=float,
+        default=0.0,
+        help="Texture V offset (tile space, default: 0).",
+    )
+    parser.add_argument(
+        "--texture-rotation",
+        type=float,
+        default=0.0,
+        help="Texture rotation in degrees (default: 0).",
+    )
+    parser.add_argument(
         "--middle-inbound",
         type=float,
         default=0.0,
@@ -111,7 +157,7 @@ def main() -> int:
     parser = _build_parser()
     args = parser.parse_args()
 
-    from .model import ExportFormat, GeneratorConfig, ShapeType, build_planter_sleeve, export_model
+    from .model import ExportFormat, GeneratorConfig, ShapeType, TextureType, build_planter_sleeve, export_model
 
     inner_diameter = args.pot_diameter + (2.0 * args.clearance)
 
@@ -123,6 +169,14 @@ def main() -> int:
         include_bottom=not args.no_bottom,
         taper_deg=args.taper,
         rim_lip_mm=args.rim_lip,
+        texture_type=TextureType(args.texture_type),
+        texture_strength_mm=args.texture_strength,
+        texture_scale=args.texture_scale,
+        texture_scale_u=args.texture_scale_u,
+        texture_scale_v=args.texture_scale_v,
+        texture_offset_u=args.texture_offset_u,
+        texture_offset_v=args.texture_offset_v,
+        texture_rotation_deg=args.texture_rotation,
         middle_inbound_turns=args.middle_inbound,
         z_rotation_deg=args.z_rotation,
         shape_type=ShapeType(args.shape_type),

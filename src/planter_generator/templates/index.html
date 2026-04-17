@@ -388,7 +388,7 @@
           <div id="preview-error" class="preview-error"></div>
         </aside>
 
-        <form id="generator-form" method="post" action="/generate" class="panel menu-panel">
+        <form id="generator-form" method="post" action="/generate" class="panel menu-panel" enctype="multipart/form-data">
           <div class="grid">
             <details class="menu-group" open>
               <summary>Geometry basic</summary>
@@ -470,6 +470,7 @@
                   <select name="texture_type" required>
                     <optgroup label="Flat">
                       <option value="none" {% if values.texture_type == "none" %}selected{% endif %}>None</option>
+                      <option value="image" {% if values.texture_type == "image" %}selected{% endif %}>Image displacement</option>
                     </optgroup>
                     <optgroup label="Linear">
                       <option value="rings" {% if values.texture_type == "rings" %}selected{% endif %}>Rings</option>
@@ -485,16 +486,60 @@
                   </select>
                 </label>
                 <label>
+                  Texture image (PNG/JPG/WebP)
+                  <input name="texture_image" id="texture-image" type="file" accept="image/png,image/jpeg,image/webp,image/*">
+                </label>
+                <label>
                   Texture strength (mm)
                   <input name="texture_strength" type="number" step="0.1" min="0" max="5" value="{{ values.texture_strength }}" required>
                 </label>
                 <label>
-                  Texture scale
+                  Texture scale U
+                  <input name="texture_scale_u" type="number" step="0.1" min="0.1" max="12" value="{{ values.texture_scale_u or values.texture_scale }}" required>
+                </label>
+                <label>
+                  Texture scale V
+                  <input name="texture_scale_v" type="number" step="0.1" min="0.1" max="12" value="{{ values.texture_scale_v or values.texture_scale }}" required>
+                </label>
+                <label>
+                  Texture offset U
+                  <input name="texture_offset_u" type="number" step="0.05" min="-10" max="10" value="{{ values.texture_offset_u or '0' }}" required>
+                </label>
+                <label>
+                  Texture offset V
+                  <input name="texture_offset_v" type="number" step="0.05" min="-10" max="10" value="{{ values.texture_offset_v or '0' }}" required>
+                </label>
+                <label>
+                  Legacy uniform scale
                   <input name="texture_scale" type="number" step="0.1" min="0.5" max="8" value="{{ values.texture_scale }}" required>
                 </label>
                 <label>
                   Texture rotation (deg)
                   <input name="texture_rotation" type="number" step="1" min="0" max="360" value="{{ values.texture_rotation }}" required>
+                </label>
+                <label>
+                  Grayscale displacement mode
+                  <select name="texture_displacement_mode" required>
+                    <option value="symmetric" {% if values.texture_displacement_mode == "symmetric" %}selected{% endif %}>Symmetric (gray midpoint is neutral)</option>
+                    <option value="raise" {% if values.texture_displacement_mode == "raise" %}selected{% endif %}>Raise only</option>
+                    <option value="lower" {% if values.texture_displacement_mode == "lower" %}selected{% endif %}>Lower only</option>
+                  </select>
+                </label>
+                <label>
+                  Grayscale black level (0-1)
+                  <input name="texture_gray_black" type="number" step="0.01" min="0" max="1" value="{{ values.texture_gray_black or '0.0' }}" required>
+                </label>
+                <label>
+                  Grayscale white level (0-1)
+                  <input name="texture_gray_white" type="number" step="0.01" min="0" max="1" value="{{ values.texture_gray_white or '1.0' }}" required>
+                </label>
+                <label>
+                  Grayscale neutral midpoint (0-1)
+                  <input name="texture_gray_midpoint" type="number" step="0.01" min="0.01" max="0.99" value="{{ values.texture_gray_midpoint or '0.5' }}" required>
+                </label>
+                <label class="toggle-label">
+                  <input name="texture_gray_invert" type="checkbox" {% if values.texture_gray_invert %}checked{% endif %}>
+                  Invert grayscale map
                 </label>
               </div>
             </details>
@@ -563,8 +608,17 @@
     const form = document.querySelector("form[action='/generate']");
     const loadConfigButton = document.getElementById("load-config-btn");
     const loadConfigInput = document.getElementById("load-config-input");
+    const textureImageInput = document.getElementById("texture-image");
     const presetSelect = document.getElementById("preset-select");
     const applyPresetButton = document.getElementById("apply-preset-btn");
+
+    const imageDisplacementState = {
+      data: null,
+      width: 0,
+      height: 0,
+      texture: null,
+      loading: false,
+    };
     
     if (!canvas) {
       console.error("Canvas element not found!");
@@ -578,6 +632,19 @@
     }
 
     function applyLoadedConfig(data) {
+      if (!("texture_scale_u" in data) && ("texture_scale" in data)) {
+        data.texture_scale_u = data.texture_scale;
+      }
+      if (!("texture_scale_v" in data) && ("texture_scale" in data)) {
+        data.texture_scale_v = data.texture_scale;
+      }
+      if (!("texture_offset_u" in data)) {
+        data.texture_offset_u = 0;
+      }
+      if (!("texture_offset_v" in data)) {
+        data.texture_offset_v = 0;
+      }
+
       for (const [name, element] of Object.entries(inputs)) {
         if (!element || !(name in data)) continue;
         if (element.type === "checkbox") {
@@ -621,12 +688,52 @@
       monolith_x: { pot_diameter: 160, clearance: 2.0, height: 200, wall: 3.8, base: 5.0, include_bottom: true, taper: 0.5, rim_lip: 1.4, shape_type: "polygon", star_inner_ratio: 0.5, middle_inbound_turns: 1.1, middle_inbound_z: 100, z_rotation: 120, sections: 4, texture_type: "hammered", texture_strength: 1.1, texture_scale: 1.9, texture_rotation: 20, material_type: "matte-black" },
     };
 
+    function clamp(value, min, max) {
+      return Math.max(min, Math.min(max, value));
+    }
+
+    function snap(value, step) {
+      return Math.round(value / step) * step;
+    }
+
+    function normalizePresetForFdm(preset) {
+      const normalized = { ...preset };
+      const height = clamp(Number(normalized.height) || 150, 90, 210);
+      normalized.height = snap(height, 0.1);
+      normalized.pot_diameter = snap(clamp(Number(normalized.pot_diameter) || 140, 90, 240), 0.1);
+      normalized.clearance = snap(clamp(Number(normalized.clearance) || 1.2, 0.6, 2.4), 0.1);
+      normalized.wall = snap(clamp(Number(normalized.wall) || 3.0, 2.4, 4.0), 0.4);
+      normalized.base = snap(clamp(Number(normalized.base) || 4.0, 3.0, 6.0), 0.2);
+      normalized.taper = snap(clamp(Number(normalized.taper) || 1.2, 0.0, 2.2), 0.1);
+      normalized.rim_lip = snap(clamp(Number(normalized.rim_lip) || 1.0, 0.6, 1.8), 0.1);
+      normalized.middle_inbound_turns = snap(clamp(Number(normalized.middle_inbound_turns) || 0, 0, 2.6), 0.1);
+      normalized.middle_inbound_z = snap(clamp(Number(normalized.middle_inbound_z) || (normalized.height * 0.5), 0, normalized.height), 0.1);
+      normalized.z_rotation = snap(clamp(Number(normalized.z_rotation) || 0, -240, 240), 1);
+      normalized.sections = snap(clamp(Number(normalized.sections) || 6, 4, 10), 1);
+      normalized.texture_strength = snap(clamp(Number(normalized.texture_strength) || 0.5, 0, 0.7), 0.1);
+      normalized.texture_scale = snap(clamp(Number(normalized.texture_scale) || 2.0, 1.0, 2.6), 0.1);
+      normalized.texture_scale_u = snap(
+        clamp(Number(normalized.texture_scale_u) || Number(normalized.texture_scale) || 2.0, 0.8, 4.0),
+        0.1,
+      );
+      normalized.texture_scale_v = snap(
+        clamp(Number(normalized.texture_scale_v) || Number(normalized.texture_scale) || 2.0, 0.8, 4.0),
+        0.1,
+      );
+      normalized.texture_offset_u = snap(clamp(Number(normalized.texture_offset_u) || 0, -2.0, 2.0), 0.05);
+      normalized.texture_offset_v = snap(clamp(Number(normalized.texture_offset_v) || 0, -2.0, 2.0), 0.05);
+      normalized.texture_rotation = snap(clamp(Number(normalized.texture_rotation) || 0, 0, 180), 1);
+      normalized.star_inner_ratio = snap(clamp(Number(normalized.star_inner_ratio) || 0.5, 0.45, 0.8), 0.05);
+      return normalized;
+    }
+
     function applySelectedPreset() {
       const key = presetSelect?.value;
       if (!key) return;
       const preset = PRESETS[key];
       if (!preset) return;
-      applyLoadedConfig(preset);
+      const fdmPreset = normalizePresetForFdm(preset);
+      applyLoadedConfig(fdmPreset);
       if (previewError) previewError.textContent = "";
     }
 
@@ -651,7 +758,7 @@
     
     const inputNames = [
       "pot_diameter", "clearance", "height", "wall", "base", "taper", "rim_lip",
-      "include_bottom", "shape_type", "star_inner_ratio", "texture_type", "texture_strength", "texture_scale", "texture_rotation", "middle_inbound_turns", "middle_inbound_z", "z_rotation", "material_type", "sections"
+      "include_bottom", "shape_type", "star_inner_ratio", "texture_type", "texture_strength", "texture_scale", "texture_scale_u", "texture_scale_v", "texture_offset_u", "texture_offset_v", "texture_rotation", "texture_displacement_mode", "texture_gray_black", "texture_gray_white", "texture_gray_midpoint", "texture_gray_invert", "middle_inbound_turns", "middle_inbound_z", "z_rotation", "material_type", "sections"
     ];
     const inputs = Object.fromEntries(inputNames.map((name) => [name, form?.querySelector(`[name='${name}']`)]));
 
@@ -667,6 +774,7 @@
     let controls = null;
     let modelMesh = null;
     let ambient = null;
+    let axisLabelSprites = [];
     let hasAutoFramedModel = false;
 
     function numberValue(name) {
@@ -707,13 +815,27 @@
     function textureOffset(z, theta) {
       const type = inputs.texture_type.value;
       const strength = numberValue("texture_strength");
-      const scale = Math.max(0.1, numberValue("texture_scale"));
+      const scaleU = Math.max(0.1, numberValue("texture_scale_u"));
+      const scaleV = Math.max(0.1, numberValue("texture_scale_v"));
+      const offsetU = numberValue("texture_offset_u");
+      const offsetV = numberValue("texture_offset_v");
       const rotation = (numberValue("texture_rotation") * Math.PI) / 180.0;
-      const phase = rotation;
-      const zRatio = z / Math.max(1e-6, numberValue("height"));
-      const frequency = Math.max(1, scale);
-      const zAngle = Math.PI * 2.0 * frequency * zRatio;
-      const thetaAngle = (frequency * theta) + phase;
+
+      const u = ((theta / (Math.PI * 2.0)) * scaleU) + offsetU;
+      const v = ((z / Math.max(1e-6, numberValue("height"))) * scaleV) + offsetV;
+      const du = u - 0.5;
+      const dv = v - 0.5;
+      const uRot = ((du * Math.cos(rotation)) - (dv * Math.sin(rotation))) + 0.5;
+      const vRot = ((du * Math.sin(rotation)) + (dv * Math.cos(rotation))) + 0.5;
+
+      const thetaAngle = Math.PI * 2.0 * uRot;
+      const zAngle = Math.PI * 2.0 * vRot;
+      const phase = 0;
+
+      if (type === "image") {
+        const sample = sampleImageDisplacement(uRot, vRot);
+        return strength * mapGraySample(sample);
+      }
 
       if (type === "rings") {
         const base =
@@ -764,6 +886,110 @@
       return 0;
     }
 
+    function mapGraySample(sample) {
+      let value = sample;
+      if (inputs.texture_gray_invert?.checked) {
+        value = 1 - value;
+      }
+
+      const black = Math.max(0, Math.min(1, numberValue("texture_gray_black")));
+      const white = Math.max(0, Math.min(1, numberValue("texture_gray_white")));
+      const midpoint = Math.max(0.01, Math.min(0.99, numberValue("texture_gray_midpoint")));
+      const mode = inputs.texture_displacement_mode?.value || "symmetric";
+      const normalized = Math.max(0, Math.min(1, (value - black) / Math.max(1e-6, white - black)));
+
+      if (mode === "raise") {
+        return normalized;
+      }
+      if (mode === "lower") {
+        return -normalized;
+      }
+
+      if (normalized >= midpoint) {
+        return (normalized - midpoint) / Math.max(1e-6, 1 - midpoint);
+      }
+      return -((midpoint - normalized) / Math.max(1e-6, midpoint));
+    }
+
+    function sampleImageDisplacement(u, v) {
+      const data = imageDisplacementState.data;
+      const width = imageDisplacementState.width;
+      const height = imageDisplacementState.height;
+      if (!data || width <= 0 || height <= 0) return 0.5;
+
+      const uu = ((u % 1) + 1) % 1;
+      const vv = ((v % 1) + 1) % 1;
+      const x = uu * (width - 1);
+      const y = vv * (height - 1);
+      const x0 = Math.floor(x);
+      const y0 = Math.floor(y);
+      const x1 = Math.min(x0 + 1, width - 1);
+      const y1 = Math.min(y0 + 1, height - 1);
+      const tx = x - x0;
+      const ty = y - y0;
+
+      const px = (ix, iy) => {
+        const idx = ((iy * width) + ix) * 4;
+        return data[idx] / 255;
+      };
+
+      const a = px(x0, y0);
+      const b = px(x1, y0);
+      const c = px(x0, y1);
+      const d = px(x1, y1);
+      const top = (a * (1 - tx)) + (b * tx);
+      const bottom = (c * (1 - tx)) + (d * tx);
+      return (top * (1 - ty)) + (bottom * ty);
+    }
+
+    function clearImageDisplacement() {
+      imageDisplacementState.data = null;
+      imageDisplacementState.width = 0;
+      imageDisplacementState.height = 0;
+      imageDisplacementState.texture = null;
+    }
+
+    function loadImageDisplacement(file) {
+      if (!file) {
+        clearImageDisplacement();
+        updatePreview();
+        return;
+      }
+      imageDisplacementState.loading = true;
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        const maxSize = 768;
+        let width = img.width;
+        let height = img.height;
+        if (Math.max(width, height) > maxSize) {
+          const scale = maxSize / Math.max(width, height);
+          width = Math.max(1, Math.round(width * scale));
+          height = Math.max(1, Math.round(height * scale));
+        }
+        const c = document.createElement("canvas");
+        c.width = width;
+        c.height = height;
+        const ctx = c.getContext("2d", { willReadFrequently: true });
+        ctx.drawImage(img, 0, 0, width, height);
+        const imageData = ctx.getImageData(0, 0, width, height);
+        imageDisplacementState.data = imageData.data;
+        imageDisplacementState.width = width;
+        imageDisplacementState.height = height;
+        imageDisplacementState.texture = new THREE.CanvasTexture(c);
+        imageDisplacementState.texture.wrapS = imageDisplacementState.texture.wrapT = THREE.RepeatWrapping;
+        imageDisplacementState.loading = false;
+        URL.revokeObjectURL(url);
+        updatePreview();
+      };
+      img.onerror = () => {
+        imageDisplacementState.loading = false;
+        URL.revokeObjectURL(url);
+        if (previewError) previewError.textContent = "Failed to load texture image.";
+      };
+      img.src = url;
+    }
+
     function drawRoundedRect(ctx, x, y, width, height, radius) {
       const r = Math.min(radius, width / 2, height / 2);
       ctx.beginPath();
@@ -811,11 +1037,14 @@
       const mat = new THREE.SpriteMaterial({
         map: tex,
         transparent: true,
+        sizeAttenuation: true,
         depthTest: false,
         depthWrite: false,
       });
       const sprite = new THREE.Sprite(mat);
       sprite.scale.set(82, 41, 1);
+      sprite.userData.labelPixelWidth = 82;
+      sprite.userData.labelPixelHeight = 41;
       return sprite;
     }
 
@@ -835,6 +1064,22 @@
       const zLabel = createAxisLabelSprite("Z", "#1d4ed8");
       zLabel.position.set(0, 0, axisLength + 44);
       scene.add(zLabel);
+
+      axisLabelSprites = [xLabel, yLabel, zLabel];
+      updateAxisLabelScale();
+    }
+
+    function updateAxisLabelScale() {
+      if (!camera || !renderer || !axisLabelSprites.length) return;
+      const viewportHeight = Math.max(1, renderer.domElement.clientHeight);
+      const fovRad = THREE.MathUtils.degToRad(camera.fov * 0.5);
+      for (const sprite of axisLabelSprites) {
+        const distance = camera.position.distanceTo(sprite.position);
+        const worldPerPixel = (2 * Math.tan(fovRad) * distance) / viewportHeight;
+        const pixelWidth = sprite.userData.labelPixelWidth || 82;
+        const pixelHeight = sprite.userData.labelPixelHeight || 41;
+        sprite.scale.set(pixelWidth * worldPerPixel, pixelHeight * worldPerPixel, 1);
+      }
     }
 
     function buildProfile() {
@@ -1222,9 +1467,14 @@
         "micro-cement": { color: 0xc2c6cc, roughness: 0.74, metalness: 0.02, bumpScale: 0.14 },
       };
       const cfg = presets[type] || presets.concrete;
-      const texture = generateTexture(type);
+      const texture = imageDisplacementState.texture || generateTexture(type);
       texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
-      texture.repeat.set(3.8, 3.8);
+      const mapScaleU = Math.max(0.1, numberValue("texture_scale_u"));
+      const mapScaleV = Math.max(0.1, numberValue("texture_scale_v"));
+      texture.repeat.set(mapScaleU, mapScaleV);
+      texture.offset.set(numberValue("texture_offset_u"), numberValue("texture_offset_v"));
+      texture.center.set(0.5, 0.5);
+      texture.rotation = (numberValue("texture_rotation") * Math.PI) / 180.0;
       if (renderer && renderer.capabilities) {
         texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
       }
@@ -1319,6 +1569,7 @@
     }
 
     function renderScene() {
+      updateAxisLabelScale();
       renderer.render(scene, camera);
     }
 
@@ -1439,6 +1690,13 @@
     if (loadConfigButton && loadConfigInput) {
       loadConfigButton.addEventListener("click", () => loadConfigInput.click());
       loadConfigInput.addEventListener("change", handleConfigFileSelection);
+    }
+
+    if (textureImageInput) {
+      textureImageInput.addEventListener("change", (event) => {
+        const file = event.target.files?.[0] || null;
+        loadImageDisplacement(file);
+      });
     }
 
     if (applyPresetButton && presetSelect) {
