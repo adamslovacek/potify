@@ -47,25 +47,31 @@
     header {
       background: transparent;
       color: var(--ink);
-      padding: 20px 28px;
+      padding: 10px 18px;
       display: flex;
       align-items: center;
       justify-content: space-between;
+      gap: 14px;
       border-bottom: 1px solid rgba(222, 227, 233, 0.9);
+    }
+    .header-copy {
+      min-width: 0;
     }
     header h1 {
       margin: 0;
-      font-size: 1.2rem;
+      font-size: 1rem;
       letter-spacing: 0.02em;
       font-weight: 800;
+      line-height: 1.1;
     }
     header p {
       margin: 0;
-      font-size: 0.95rem;
+      font-size: 0.82rem;
       color: var(--muted);
+      line-height: 1.2;
     }
     .content {
-      padding: 24px 28px 32px;
+      padding: 14px 18px 20px;
       height: 100%;
     }
     .layout {
@@ -127,11 +133,25 @@
       box-shadow: 0 0 0 4px rgba(162, 175, 193, 0.12);
     }
     .actions {
-      margin-top: 18px;
+      margin-top: auto;
       display: flex;
       gap: 12px;
       flex-wrap: wrap;
       align-items: center;
+    }
+    .header-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+    .header-actions button {
+      padding: 8px 12px;
+      border-radius: 13px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+      box-shadow: 0 8px 16px rgba(35, 42, 57, 0.15);
     }
     button {
       border: none;
@@ -149,6 +169,11 @@
       transform: translateY(-1px);
       box-shadow: 0 14px 26px rgba(35, 42, 57, 0.2);
     }
+    .button-secondary {
+      color: #2e3846;
+      background: linear-gradient(135deg, #eff3f8 0%, #dfe7f1 100%);
+      box-shadow: 0 10px 18px rgba(94, 116, 145, 0.18);
+    }
     .muted {
       align-self: center;
       color: var(--muted);
@@ -156,8 +181,8 @@
       line-height: 1.45;
     }
     .preview-wrap {
-      height: calc(100% - 12px);
-      min-height: 520px;
+      height: 100%;
+      min-height: 620px;
       border-radius: 24px;
       border: 1px solid var(--line);
       background: #f5f7fb;
@@ -179,13 +204,13 @@
     }
     .preview-panel {
       display: grid;
-      grid-template-rows: auto 1fr auto auto;
+      grid-template-rows: 1fr auto;
       min-height: 0;
     }
     .menu-panel {
       overflow-y: auto;
       height: 100%;
-      max-height: calc(100vh - 170px);
+      max-height: calc(100vh - 112px);
       padding-right: 6px;
     }
     .section-heading {
@@ -206,15 +231,33 @@
       min-height: 1.2em;
       margin-top: 8px;
     }
+    .toggle-label {
+      flex-direction: row;
+      align-items: center;
+      gap: 10px;
+      padding-top: 2px;
+    }
+    .toggle-label input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      margin: 0;
+      accent-color: #334155;
+    }
+    .toggle-caption {
+      font-size: 0.92rem;
+      color: var(--muted);
+      font-weight: 500;
+    }
     @media (max-width: 980px) {
       .layout { grid-template-columns: 1fr; }
       .menu-panel { max-height: 46vh; }
-      .preview-wrap { min-height: 54vh; }
+      .preview-wrap { min-height: 60vh; }
     }
     @media (max-width: 780px) {
       header { flex-direction: column; align-items: flex-start; gap: 10px; }
       header h1 { font-size: 1.45rem; }
       header p { font-size: 0.92rem; }
+      .header-actions { width: 100%; justify-content: flex-start; }
       .content { padding: 16px 18px 24px; }
     }
   </style>
@@ -222,8 +265,15 @@
 <body>
   <main class="card">
     <header>
-      <h1>Planter Sleeve Generator</h1>
-      <p>Browser UI for generating 3D-printable planter sleeves in STL and 3MF.</p>
+      <div class="header-copy">
+        <h1>Planter Sleeve Generator</h1>
+        <p>Browser UI for generating 3D-printable planter sleeves in STL and 3MF.</p>
+      </div>
+      <div class="header-actions">
+        <button type="submit" form="generator-form" formaction="/generate" formmethod="post" name="format" value="stl">Export STL</button>
+        <button type="submit" form="generator-form" formaction="/generate" formmethod="post" name="format" value="3mf">Export 3MF</button>
+        <button type="submit" form="generator-form" formaction="/save-config" formmethod="post" class="button-secondary">Save JSON</button>
+      </div>
     </header>
 
     <section class="content">
@@ -233,16 +283,13 @@
 
       <div class="layout">
         <aside class="panel preview-panel">
-          <h2>Live 3D Preview</h2>
           <div class="preview-wrap">
             <canvas id="preview-canvas"></canvas>
           </div>
-          <div class="preview-meta">Drag to rotate. Scroll to zoom. The preview follows current form values.</div>
           <div id="preview-error" class="preview-error"></div>
         </aside>
 
-        <form method="post" action="/generate" class="panel menu-panel">
-          <h2>Generator Settings</h2>
+        <form id="generator-form" method="post" action="/generate" class="panel menu-panel">
           <div class="grid">
             <label>
               Pot diameter (mm)
@@ -264,6 +311,11 @@
               Base thickness (mm)
               <input name="base" type="number" step="0.1" min="0.2" value="{{ values.base }}" required>
             </label>
+            <label class="toggle-label">
+              <input name="include_bottom" type="checkbox" {% if values.include_bottom %}checked{% endif %}>
+              Include bottom
+            </label>
+            <div class="toggle-caption">Enabled by default. Disable for an open-bottom sleeve.</div>
             <label>
               Taper (deg)
               <input name="taper" type="number" step="0.1" value="{{ values.taper }}" required>
@@ -276,10 +328,20 @@
             <label class="texture-section">
               Texture type
               <select name="texture_type" required>
-                <option value="none" {% if values.texture_type == "none" %}selected{% endif %}>None</option>
-                <option value="rings" {% if values.texture_type == "rings" %}selected{% endif %}>Rings</option>
-                <option value="spiral" {% if values.texture_type == "spiral" %}selected{% endif %}>Spiral</option>
-                <option value="grid" {% if values.texture_type == "grid" %}selected{% endif %}>Grid</option>
+                <optgroup label="Flat">
+                  <option value="none" {% if values.texture_type == "none" %}selected{% endif %}>None</option>
+                </optgroup>
+                <optgroup label="Linear">
+                  <option value="rings" {% if values.texture_type == "rings" %}selected{% endif %}>Rings</option>
+                  <option value="micro_rings" {% if values.texture_type == "micro_rings" %}selected{% endif %}>Micro Rings</option>
+                  <option value="spiral" {% if values.texture_type == "spiral" %}selected{% endif %}>Spiral</option>
+                  <option value="braid" {% if values.texture_type == "braid" %}selected{% endif %}>Braid</option>
+                </optgroup>
+                <optgroup label="Patterned">
+                  <option value="grid" {% if values.texture_type == "grid" %}selected{% endif %}>Grid</option>
+                  <option value="hex" {% if values.texture_type == "hex" %}selected{% endif %}>Hex Cell</option>
+                  <option value="hammered" {% if values.texture_type == "hammered" %}selected{% endif %}>Hammered</option>
+                </optgroup>
               </select>
             </label>
             <label class="texture-section">
@@ -297,35 +359,44 @@
             <label>
               Material style
               <select name="material_type" required>
-                <option value="concrete">Light concrete</option>
-                <option value="dark-stone">Dark stone</option>
-                <option value="glossy-ceramic">Glossy ceramic</option>
-                <option value="brushed-metal">Brushed metal</option>
-                <option value="matte-black">Matte black</option>
-                <option value="sandstone">Sandstone</option>
-                <option value="slate">Slate finish</option>
-                <option value="pearl-glaze">Pearl glaze</option>
-                <option value="charcoal">Charcoal</option>
-                <option value="smooth-sand">Smooth sand</option>
+                <optgroup label="Stone & Concrete">
+                  <option value="concrete">Light concrete</option>
+                  <option value="dark-stone">Dark stone</option>
+                  <option value="sandstone">Sandstone</option>
+                  <option value="slate">Slate finish</option>
+                  <option value="terrazzo">Terrazzo</option>
+                  <option value="basalt">Basalt</option>
+                  <option value="weathered-concrete">Weathered concrete</option>
+                </optgroup>
+                <optgroup label="Ceramic & Clay">
+                  <option value="glossy-ceramic">Glossy ceramic</option>
+                  <option value="pearl-glaze">Pearl glaze</option>
+                  <option value="porcelain-speckle">Porcelain speckle</option>
+                  <option value="terracotta">Terracotta</option>
+                  <option value="raku">Raku crackle</option>
+                </optgroup>
+                <optgroup label="Metal & Industrial">
+                  <option value="brushed-metal">Brushed metal</option>
+                  <option value="oxidized-copper">Oxidized copper</option>
+                  <option value="worn-steel">Worn steel</option>
+                  <option value="matte-black">Matte black</option>
+                  <option value="charcoal">Charcoal</option>
+                </optgroup>
+                <optgroup label="Natural & Composite">
+                  <option value="smooth-sand">Smooth sand</option>
+                  <option value="travertine">Travertine</option>
+                  <option value="micro-cement">Micro cement</option>
+                </optgroup>
               </select>
             </label>
             <label>
               Mesh sections
               <input name="sections" type="number" step="1" min="24" value="{{ values.sections }}" required>
             </label>
-            <label>
-              Export format
-              <select name="format" required>
-                <option value="stl" {% if values.format == "stl" %}selected{% endif %}>STL</option>
-                <option value="3mf" {% if values.format == "3mf" %}selected{% endif %}>3MF</option>
-                <option value="both" {% if values.format == "both" %}selected{% endif %}>Both (ZIP)</option>
-              </select>
-            </label>
         </div>
 
           <div class="actions">
-            <button type="submit">Generate And Download</button>
-            <span class="muted">For both formats, files are returned as a ZIP archive.</span>
+            <span class="muted">Use top-right buttons next to the title to export STL/3MF or save JSON.</span>
           </div>
         </form>
       </div>
@@ -348,11 +419,12 @@
     const form = document.querySelector("form[action='/generate']");
     const inputNames = [
       "pot_diameter", "clearance", "height", "wall", "base", "taper", "rim_lip",
-      "texture_type", "texture_strength", "texture_scale", "texture_rotation", "material_type", "sections"
+      "include_bottom", "texture_type", "texture_strength", "texture_scale", "texture_rotation", "material_type", "sections"
     ];
     const inputs = Object.fromEntries(inputNames.map((name) => [name, form.querySelector(`[name='${name}']`)]));
 
     let renderer, scene, camera, controls, modelMesh, light, ambient;
+    let hasAutoFramedModel = false;
 
     function numberValue(name) {
       const value = Number(inputs[name]?.value);
@@ -367,25 +439,136 @@
       const strength = numberValue("texture_strength");
       const scale = Math.max(0.1, numberValue("texture_scale"));
       const rotation = (numberValue("texture_rotation") * Math.PI) / 180.0;
-      const phase = theta + rotation;
-      const scaledZ = (z / Math.max(1, numberValue("height"))) * scale;
+      const phase = rotation;
+      const zRatio = z / Math.max(1e-6, numberValue("height"));
       const frequency = Math.max(1, scale);
+      const zAngle = Math.PI * 2.0 * frequency * zRatio;
+      const thetaAngle = (frequency * theta) + phase;
 
       if (type === "rings") {
-        return strength * Math.sin(scaledZ * Math.PI * 2.0);
+        const base =
+          Math.sin(zAngle + phase)
+          + 0.38 * Math.sin((3.0 * zAngle) + (phase * 0.6))
+          + 0.2 * Math.sin((7.0 * zAngle) - (phase * 0.35));
+        return strength * 0.62 * base;
+      }
+      if (type === "micro_rings") {
+        const base =
+          Math.sin((2.0 * zAngle) + phase)
+          + 0.52 * Math.sin((8.0 * zAngle) + (phase * 0.5))
+          + 0.18 * Math.sin((16.0 * zAngle) - (phase * 0.25));
+        return strength * 0.48 * base;
       }
       if (type === "spiral") {
-        return strength * Math.sin(frequency * phase + scaledZ * Math.PI * 2.0);
+        const base = Math.sin(thetaAngle + zAngle);
+        const detail = 0.26 * Math.sin((2.6 * thetaAngle) - (3.2 * zAngle));
+        return strength * (base + detail);
+      }
+      if (type === "braid") {
+        const left = Math.sin(thetaAngle + (1.5 * zAngle));
+        const right = Math.sin((-thetaAngle) + (1.5 * zAngle) + (Math.PI * 0.5));
+        const weave = 0.45 * Math.sin((4.0 * thetaAngle) + (0.7 * zAngle));
+        return strength * 0.68 * (left * right + weave);
       }
       if (type === "grid") {
-        const a = Math.sin(frequency * phase);
-        const b = Math.sin(scaledZ * Math.PI * 2.0);
-        return strength * a * b * 0.55;
+        const coarse = Math.sin(thetaAngle) * Math.sin(zAngle + phase);
+        const fine =
+          0.35
+          * Math.sin((3.0 * thetaAngle) + phase)
+          * Math.sin((3.0 * zAngle) - phase);
+        return strength * 0.52 * (coarse + fine);
+      }
+      if (type === "hex") {
+        const a = Math.abs(Math.sin(thetaAngle));
+        const b = Math.abs(Math.sin((0.58 * thetaAngle) + (1.72 * zAngle)));
+        const c = Math.abs(Math.sin((0.58 * thetaAngle) - (1.72 * zAngle)));
+        return strength * (((a + b + c) / 3.0) - 0.5);
+      }
+      if (type === "hammered") {
+        const n1 = Math.sin((7.0 * thetaAngle) + (5.0 * zAngle));
+        const n2 = Math.sin((13.0 * thetaAngle) - (11.0 * zAngle) + 1.7);
+        const n3 = Math.sin((17.0 * thetaAngle) + (3.0 * zAngle) - 0.9);
+        const noise = (n1 + n2 + n3) / 3.0;
+        return strength * 0.55 * noise;
       }
       return 0;
     }
 
+    function drawRoundedRect(ctx, x, y, width, height, radius) {
+      const r = Math.min(radius, width / 2, height / 2);
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + width, y, x + width, y + height, r);
+      ctx.arcTo(x + width, y + height, x, y + height, r);
+      ctx.arcTo(x, y + height, x, y, r);
+      ctx.arcTo(x, y, x + width, y, r);
+      ctx.closePath();
+    }
+
+    function createAxisLabelSprite(letter, tintColor) {
+      const width = 320;
+      const height = 160;
+      const labelCanvas = document.createElement("canvas");
+      labelCanvas.width = width;
+      labelCanvas.height = height;
+      const ctx = labelCanvas.getContext("2d");
+      ctx.clearRect(0, 0, width, height);
+
+      ctx.shadowColor = "rgba(15, 23, 42, 0.16)";
+      ctx.shadowBlur = 18;
+      ctx.shadowOffsetY = 8;
+      drawRoundedRect(ctx, 16, 16, width - 32, height - 32, 30);
+      const cardGradient = ctx.createLinearGradient(0, 16, 0, height - 16);
+      cardGradient.addColorStop(0, "rgba(255, 255, 255, 0.93)");
+      cardGradient.addColorStop(1, "rgba(243, 247, 252, 0.88)");
+      ctx.fillStyle = cardGradient;
+      ctx.fill();
+
+      ctx.shadowColor = "rgba(0, 0, 0, 0)";
+      drawRoundedRect(ctx, 16, 16, width - 32, height - 32, 30);
+      ctx.strokeStyle = "rgba(148, 163, 184, 0.45)";
+      ctx.lineWidth = 3;
+      ctx.stroke();
+
+      ctx.fillStyle = tintColor;
+      ctx.font = "700 50px 'Segoe UI', 'Helvetica Neue', Arial, sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(letter, width / 2, height / 2);
+
+      const tex = new THREE.CanvasTexture(labelCanvas);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      const mat = new THREE.SpriteMaterial({
+        map: tex,
+        transparent: true,
+        depthTest: false,
+        depthWrite: false,
+      });
+      const sprite = new THREE.Sprite(mat);
+      sprite.scale.set(82, 41, 1);
+      return sprite;
+    }
+
+    function addAxisHelpers() {
+      const axisLength = 240;
+      const axes = new THREE.AxesHelper(axisLength);
+      scene.add(axes);
+
+      const xLabel = createAxisLabelSprite("X", "#be123c");
+      xLabel.position.set(axisLength + 44, 0, 0);
+      scene.add(xLabel);
+
+      const yLabel = createAxisLabelSprite("Y", "#15803d");
+      yLabel.position.set(0, axisLength + 44, 0);
+      scene.add(yLabel);
+
+      const zLabel = createAxisLabelSprite("Z", "#1d4ed8");
+      zLabel.position.set(0, 0, axisLength + 44);
+      scene.add(zLabel);
+    }
+
     function buildProfile() {
+      const includeBottom = !!inputs.include_bottom?.checked;
       const pot = numberValue("pot_diameter");
       const clearance = numberValue("clearance");
       const height = numberValue("height");
@@ -396,7 +579,7 @@
 
       const innerDiameter = pot + (2.0 * clearance);
       const taper = Math.tan((taperDeg * Math.PI) / 180.0);
-      const zBase = base;
+      const zBase = includeBottom ? base : 0.0;
       const zTop = height;
       const zLip = Math.max(zBase, zTop - wall);
       const rInnerAtBase = innerDiameter / 2.0;
@@ -412,9 +595,24 @@
       const rLt = rOt + rimLip;
       const rLl = rOl + rimLip;
 
-      const radii = [rO0, rOb, rOl, rOt, rIt, rLt, rLl];
-      if (radii.some((r) => r <= 0) || base <= 0 || wall <= 0 || height <= base) {
+      const radii = [rO0, rOb, rOl, rOt, rIt, rLt, rLl, rInnerAtBase];
+      if (radii.some((r) => r <= 0) || wall <= 0 || height <= zBase) {
         throw new Error("Invalid dimensions for preview.");
+      }
+
+      if (includeBottom && base <= 0) {
+        throw new Error("Base thickness must be > 0 when bottom is enabled.");
+      }
+
+      if (!includeBottom) {
+        return [
+          [rOb, zBase],
+          [rOl, zLip],
+          [rLl, zLip],
+          [rLt, zTop],
+          [rIt, zTop],
+          [rInnerAtBase, zBase],
+        ];
       }
 
       return [
@@ -431,18 +629,20 @@
     function buildGeometry() {
       const sections = Math.max(24, Math.floor(numberValue("sections")));
       const profile = buildProfile();
+      const includeBottom = !!inputs.include_bottom?.checked;
+      const base = numberValue("base");
       const vertices = [];
       const uvs = [];
       const indices = [];
 
       for (let i = 0; i < profile.length; i++) {
-        const [radius, y] = profile[i];
+        const [radius, z] = profile[i];
         for (let j = 0; j < sections; j++) {
           const theta = (j / sections) * Math.PI * 2.0;
-          const offset = textureOffset(y, theta);
+          const offset = textureOffset(z, theta);
           const r = Math.max(0.025, radius + offset);
-          vertices.push(r * Math.cos(theta), y, r * Math.sin(theta));
-          uvs.push(j / sections, y / numberValue("height"));
+          vertices.push(r * Math.cos(theta), r * Math.sin(theta), z);
+          uvs.push(j / sections, z / numberValue("height"));
         }
       }
 
@@ -452,6 +652,30 @@
           const b = i * sections + ((j + 1) % sections);
           const c = (i + 1) * sections + ((j + 1) % sections);
           const d = (i + 1) * sections + j;
+          indices.push(a, b, c, a, c, d);
+        }
+      }
+
+      if (includeBottom && base > 0 && profile.length >= 7) {
+        const centerIndex = vertices.length / 3;
+        vertices.push(0, 0, 0);
+        uvs.push(0.5, 0.5);
+
+        for (let j = 0; j < sections; j++) {
+          const a = j;
+          const b = (j + 1) % sections;
+          indices.push(centerIndex, b, a);
+        }
+
+        const outerBaseRing = 1;
+        const innerBaseRing = profile.length - 1;
+        const outerStart = outerBaseRing * sections;
+        const innerStart = innerBaseRing * sections;
+        for (let j = 0; j < sections; j++) {
+          const a = outerStart + j;
+          const b = outerStart + ((j + 1) % sections);
+          const c = innerStart + ((j + 1) % sections);
+          const d = innerStart + j;
           indices.push(a, b, c, a, c, d);
         }
       }
@@ -471,6 +695,35 @@
       const ctx = canvas.getContext("2d");
       ctx.clearRect(0, 0, size, size);
 
+      function rand(min, max) {
+        return min + (Math.random() * (max - min));
+      }
+
+      function drawSpeckles(count, maxRadius, alphaMin, alphaMax, tone = 255) {
+        for (let i = 0; i < count; i++) {
+          const x = Math.random() * size;
+          const y = Math.random() * size;
+          const radius = Math.random() * maxRadius;
+          const alpha = rand(alphaMin, alphaMax);
+          ctx.fillStyle = `rgba(${tone},${tone},${tone},${alpha})`;
+          ctx.beginPath();
+          ctx.arc(x, y, radius, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      function drawFibers(count, alphaMax, width = 1.0) {
+        for (let i = 0; i < count; i++) {
+          const y = Math.random() * size;
+          ctx.strokeStyle = `rgba(255,255,255,${Math.random() * alphaMax})`;
+          ctx.lineWidth = width;
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(size, y + rand(-6, 6));
+          ctx.stroke();
+        }
+      }
+
       const styles = {
         concrete: { base: "#b8bbc0", accent: "rgba(255,255,255,0.12)", noise: 0.04 },
         "dark-stone": { base: "#4f545d", accent: "rgba(255,255,255,0.08)", noise: 0.08 },
@@ -482,31 +735,26 @@
         "pearl-glaze": { base: "#f1ece5", accent: "rgba(255,255,255,0.45)", noise: 0.02 },
         charcoal: { base: "#363940", accent: "rgba(255,255,255,0.08)", noise: 0.06 },
         "smooth-sand": { base: "#cbc1b0", accent: "rgba(255,255,255,0.16)", noise: 0.05 },
+        terrazzo: { base: "#d8d9d4", accent: "rgba(255,255,255,0.18)", noise: 0.03 },
+        basalt: { base: "#565e67", accent: "rgba(255,255,255,0.08)", noise: 0.08 },
+        "weathered-concrete": { base: "#a8adb3", accent: "rgba(255,255,255,0.1)", noise: 0.07 },
+        "porcelain-speckle": { base: "#f0eee8", accent: "rgba(255,255,255,0.4)", noise: 0.015 },
+        terracotta: { base: "#b8674a", accent: "rgba(255,255,255,0.1)", noise: 0.045 },
+        raku: { base: "#2f3238", accent: "rgba(255,255,255,0.22)", noise: 0.04 },
+        "oxidized-copper": { base: "#6c7f74", accent: "rgba(255,255,255,0.18)", noise: 0.05 },
+        "worn-steel": { base: "#7d858f", accent: "rgba(255,255,255,0.14)", noise: 0.04 },
+        travertine: { base: "#d7c6a7", accent: "rgba(255,255,255,0.14)", noise: 0.04 },
+        "micro-cement": { base: "#c2c6cc", accent: "rgba(255,255,255,0.12)", noise: 0.03 },
       };
 
       const style = styles[type] || styles.concrete;
       ctx.fillStyle = style.base;
       ctx.fillRect(0, 0, size, size);
 
-      for (let i = 0; i < 2200; i++) {
-        const x = Math.random() * size;
-        const y = Math.random() * size;
-        const radius = Math.random() * (style.noise * size);
-        ctx.fillStyle = `rgba(255,255,255,${Math.random() * 0.08})`;
-        ctx.beginPath();
-        ctx.arc(x, y, radius, 0, Math.PI * 2);
-        ctx.fill();
-      }
+      drawSpeckles(2200, style.noise * size, 0.01, 0.08);
 
       if (type === "brushed-metal") {
-        ctx.strokeStyle = "rgba(255,255,255,0.16)";
-        ctx.lineWidth = 1.2;
-        for (let y = 0; y <= size; y += 6) {
-          ctx.beginPath();
-          ctx.moveTo(0, y + (Math.random() * 2 - 1));
-          ctx.lineTo(size, y + (Math.random() * 2 - 1));
-          ctx.stroke();
-        }
+        drawFibers(120, 0.12, 1.1);
       }
 
       if (type === "glossy-ceramic" || type === "pearl-glaze") {
@@ -518,15 +766,96 @@
       }
 
       if (type === "matte-black" || type === "charcoal") {
-        for (let i = 0; i < 70; i++) {
-          ctx.strokeStyle = `rgba(255,255,255,${Math.random() * 0.04})`;
-          ctx.lineWidth = 1;
-          ctx.beginPath();
+        drawFibers(70, 0.04, 1);
+      }
+
+      if (type === "terrazzo") {
+        const chips = ["#ffffff", "#d0cdc6", "#8f969f", "#c4a88a", "#6f7680"];
+        for (let i = 0; i < 260; i++) {
+          const x = Math.random() * size;
           const y = Math.random() * size;
-          ctx.moveTo(0, y);
-          ctx.lineTo(size, y + (Math.random() * 4 - 2));
+          const r = rand(2, 10);
+          ctx.fillStyle = chips[Math.floor(Math.random() * chips.length)];
+          ctx.beginPath();
+          ctx.moveTo(x + r, y);
+          for (let p = 0; p < 6; p++) {
+            const angle = (p / 6) * Math.PI * 2 + rand(-0.3, 0.3);
+            const rr = r * rand(0.5, 1.2);
+            ctx.lineTo(x + Math.cos(angle) * rr, y + Math.sin(angle) * rr);
+          }
+          ctx.closePath();
+          ctx.fill();
+        }
+      }
+
+      if (type === "basalt") {
+        for (let i = 0; i < 1400; i++) {
+          const x = Math.random() * size;
+          const y = Math.random() * size;
+          const radius = rand(0.4, 2.3);
+          ctx.fillStyle = `rgba(20,24,28,${rand(0.08, 0.24)})`;
+          ctx.beginPath();
+          ctx.arc(x, y, radius, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      if (type === "weathered-concrete" || type === "micro-cement") {
+        for (let i = 0; i < 44; i++) {
+          ctx.strokeStyle = `rgba(255,255,255,${rand(0.02, 0.07)})`;
+          ctx.lineWidth = rand(0.8, 2.2);
+          const y0 = rand(0, size);
+          ctx.beginPath();
+          ctx.moveTo(0, y0);
+          ctx.bezierCurveTo(size * 0.3, y0 + rand(-18, 18), size * 0.7, y0 + rand(-18, 18), size, y0 + rand(-12, 12));
           ctx.stroke();
         }
+      }
+
+      if (type === "porcelain-speckle") {
+        drawSpeckles(1400, 1.8, 0.03, 0.12, 42);
+      }
+
+      if (type === "terracotta") {
+        drawFibers(65, 0.035, 0.8);
+        drawSpeckles(900, 2.4, 0.02, 0.08, 66);
+      }
+
+      if (type === "raku") {
+        ctx.strokeStyle = "rgba(255,255,255,0.28)";
+        ctx.lineWidth = 1.1;
+        for (let i = 0; i < 150; i++) {
+          const x0 = rand(0, size);
+          const y0 = rand(0, size);
+          ctx.beginPath();
+          ctx.moveTo(x0, y0);
+          ctx.lineTo(x0 + rand(-32, 32), y0 + rand(-32, 32));
+          ctx.stroke();
+        }
+      }
+
+      if (type === "oxidized-copper") {
+        const patina = ctx.createLinearGradient(0, 0, size, size);
+        patina.addColorStop(0, "rgba(91, 146, 128, 0.35)");
+        patina.addColorStop(1, "rgba(46, 88, 86, 0.16)");
+        ctx.fillStyle = patina;
+        ctx.fillRect(0, 0, size, size);
+        drawFibers(90, 0.06, 0.9);
+      }
+
+      if (type === "worn-steel") {
+        drawFibers(130, 0.12, 0.9);
+        drawSpeckles(600, 2.2, 0.04, 0.1, 230);
+      }
+
+      if (type === "travertine") {
+        for (let i = 0; i < 95; i++) {
+          const y = rand(0, size);
+          const h = rand(2, 7);
+          ctx.fillStyle = `rgba(132, 108, 78, ${rand(0.08, 0.18)})`;
+          ctx.fillRect(0, y, size, h);
+        }
+        drawSpeckles(1100, 2.0, 0.01, 0.07, 245);
       }
 
       return new THREE.CanvasTexture(canvas);
@@ -545,6 +874,16 @@
         "pearl-glaze": { color: 0xf1ece5, roughness: 0.18, metalness: 0.05, bumpScale: 0.03 },
         charcoal: { color: 0x363940, roughness: 0.78, metalness: 0.04, bumpScale: 0.08 },
         "smooth-sand": { color: 0xcbc1b0, roughness: 0.74, metalness: 0.01, bumpScale: 0.05 },
+        terrazzo: { color: 0xd7d8d2, roughness: 0.66, metalness: 0.02, bumpScale: 0.12 },
+        basalt: { color: 0x565e67, roughness: 0.9, metalness: 0.03, bumpScale: 0.14 },
+        "weathered-concrete": { color: 0xa8adb3, roughness: 0.86, metalness: 0.02, bumpScale: 0.13 },
+        "porcelain-speckle": { color: 0xf0eee8, roughness: 0.28, metalness: 0.03, bumpScale: 0.05 },
+        terracotta: { color: 0xb8674a, roughness: 0.78, metalness: 0.01, bumpScale: 0.11 },
+        raku: { color: 0x2f3238, roughness: 0.52, metalness: 0.08, bumpScale: 0.14 },
+        "oxidized-copper": { color: 0x6c7f74, roughness: 0.5, metalness: 0.62, bumpScale: 0.1 },
+        "worn-steel": { color: 0x7d858f, roughness: 0.58, metalness: 0.72, bumpScale: 0.11 },
+        travertine: { color: 0xd7c6a7, roughness: 0.8, metalness: 0.01, bumpScale: 0.1 },
+        "micro-cement": { color: 0xc2c6cc, roughness: 0.8, metalness: 0.02, bumpScale: 0.09 },
       };
       const cfg = presets[type] || presets.concrete;
       const texture = generateTexture(type);
@@ -582,12 +921,25 @@
       fill.position.set(-2, -1, -3);
       scene.add(fill);
 
-      // Add grid for x and y at z=1 with 1cm (10 unit) spacing
-      const gridSize = 2000;  // 2000mm = 2m total grid
-      const gridDivisions = 200;  // 200 divisions = 10mm (1cm) each
-      const gridHelper = new THREE.GridHelper(gridSize, gridDivisions, 0x0088ff, 0xcccccc);
-      gridHelper.position.z = 1;  // Position at z=1
-      scene.add(gridHelper);
+      addAxisHelpers();
+
+      // Two-layer grid keeps lines readable when zooming out.
+      const gridSize = 2200;
+      const fineGrid = new THREE.GridHelper(gridSize, 220, 0x7b93b5, 0xcfd8e5);
+      fineGrid.rotation.x = Math.PI / 2;
+      fineGrid.position.z = 1;
+      fineGrid.frustumCulled = false;
+      fineGrid.material.transparent = true;
+      fineGrid.material.opacity = 0.6;
+      scene.add(fineGrid);
+
+      const coarseGrid = new THREE.GridHelper(gridSize, 44, 0x5e769a, 0x98abc4);
+      coarseGrid.rotation.x = Math.PI / 2;
+      coarseGrid.position.z = 1.2;
+      coarseGrid.frustumCulled = false;
+      coarseGrid.material.transparent = true;
+      coarseGrid.material.opacity = 0.9;
+      scene.add(coarseGrid);
     }
 
     function initRenderer() {
@@ -599,9 +951,10 @@
     function initCamera() {
       const width = canvas.clientWidth;
       const height = canvas.clientHeight;
-      camera = new THREE.PerspectiveCamera(32, width / height, 0.1, 1000);
-      camera.position.set(0, 0.6, 1.9);
-      camera.lookAt(0, 0.4, 0);
+      camera = new THREE.PerspectiveCamera(32, width / height, 0.1, 10000);
+      camera.up.set(0, 0, 1);
+      camera.position.set(0.7, -1.9, 0.6);
+      camera.lookAt(0, 0, 0.4);
 
       controls = new OrbitControls(camera, canvas);
       controls.enableDamping = true;
@@ -612,7 +965,7 @@
       controls.rotateSpeed = 0.95;
       controls.minDistance = 0.8;
       controls.maxDistance = 6.0;
-      controls.target.set(0, 0.4, 0);
+      controls.target.set(0, 0, 0.4);
       controls.update();
     }
 
@@ -647,13 +1000,16 @@
       scene.add(modelMesh);
       const box = new THREE.Box3().setFromObject(modelMesh);
       const radius = box.getBoundingSphere(new THREE.Sphere()).radius;
-      const targetY = radius * 0.4;
+      const targetZ = radius * 0.4;
       const distance = radius * 2.2;
-      camera.position.set(0, radius * 0.55, distance);
       if (controls) {
-        controls.target.set(0, targetY, 0);
         controls.minDistance = Math.max(0.4, distance * 0.35);
-        controls.maxDistance = Math.max(distance * 3.0, 4.5);
+        controls.maxDistance = Math.max(distance * 6.0, 2500);
+        if (!hasAutoFramedModel) {
+          camera.position.set(radius * 0.55, -distance, radius * 0.7);
+          controls.target.set(0, 0, targetZ);
+          hasAutoFramedModel = true;
+        }
         controls.update();
       }
       renderScene();

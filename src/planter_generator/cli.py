@@ -40,6 +40,11 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Base thickness in mm (default: 4.0).",
     )
     parser.add_argument(
+        "--no-bottom",
+        action="store_true",
+        help="Generate sleeve without bottom (open-bottom variant).",
+    )
+    parser.add_argument(
         "--taper",
         type=float,
         default=1.5,
@@ -85,6 +90,7 @@ def main() -> int:
         height_mm=args.height,
         wall_thickness_mm=args.wall,
         base_thickness_mm=args.base,
+        include_bottom=not args.no_bottom,
         taper_deg=args.taper,
         rim_lip_mm=args.rim_lip,
         sections=args.sections,
