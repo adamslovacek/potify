@@ -25,6 +25,11 @@ class TextureType(str, Enum):
     HAMMERED = "hammered"
 
 
+class ShapeType(str, Enum):
+    POLYGON = "polygon"
+    STAR = "star"
+
+
 @dataclass(frozen=True)
 class GeneratorConfig:
     inner_diameter_mm: float
@@ -40,8 +45,10 @@ class GeneratorConfig:
     texture_rotation_deg: float = 0.0
     middle_inbound_turns: float = 0.0
     z_rotation_deg: float = 0.0
-    sections: int = 192
-    height_steps: int = 48
+    shape_type: ShapeType = ShapeType.POLYGON
+    star_inner_ratio: float = 0.5
+    sections: int = 256
+    height_steps: int = 64
 
     def validate(self) -> None:
         if self.inner_diameter_mm <= 0:
@@ -68,6 +75,8 @@ class GeneratorConfig:
             raise ValueError("middle_inbound_turns must be in range [0, 50]")
         if abs(self.z_rotation_deg) > 3600:
             raise ValueError("z_rotation_deg absolute value must be <= 3600")
+        if self.star_inner_ratio < 0.1 or self.star_inner_ratio > 0.9:
+            raise ValueError("star_inner_ratio must be in range [0.1, 0.9]")
         if self.sections < 24:
             raise ValueError("sections must be >= 24")
         if self.height_steps < 8:
@@ -93,6 +102,24 @@ def _middle_inbound_angle(z: float, height: float, config: GeneratorConfig) -> f
 def _z_twist_angle(z: float, height: float, config: GeneratorConfig) -> float:
     z_ratio = z / max(1e-6, height)
     return radians(config.z_rotation_deg) * z_ratio
+
+
+def _get_point_angle_and_radius_factor(i: int, sections: int, config: GeneratorConfig) -> tuple[float, float]:
+    """
+    Get the angle and radius factor for the i-th point in the cross-section.
+    For polygon: returns angle and radius_factor=1.0 for all points.
+    For star: alternates between outer (1.0) and inner (star_inner_ratio) radii.
+    """
+    if config.shape_type == ShapeType.POLYGON:
+        angle = (i / sections) * (2.0 * pi)
+        return angle, 1.0
+    
+    # Star shape: points alternate between outer and inner
+    point_count = sections * 2
+    angle = (i / point_count) * (2.0 * pi)
+    is_inner = (i % 2) == 1
+    radius_factor = config.star_inner_ratio if is_inner else 1.0
+    return angle, radius_factor
 
 
 def _outer_base_radius(z: float, config: GeneratorConfig) -> float:
@@ -219,6 +246,12 @@ def _build_planter_mesh(config: GeneratorConfig) -> trimesh.Trimesh:
         *[(i / (height_steps - 1)) * z_top for i in range(height_steps)],
     ]))
 
+    # Determine actual vertex count per ring (polygon or star)
+    if config.shape_type == ShapeType.STAR:
+        point_count = sections * 2
+    else:
+        point_count = sections
+
     # Equivalent to linear_extrude(height=..., twist=...) around Z axis.
     outer_rings = []
     for z in z_levels:
@@ -226,10 +259,10 @@ def _build_planter_mesh(config: GeneratorConfig) -> trimesh.Trimesh:
         rotation_angle = _middle_inbound_angle(z, z_top, config)
         z_twist = _z_twist_angle(z, z_top, config)
         ring = []
-        for i in range(sections):
-            theta = (i / sections) * (2.0 * pi)
+        for i in range(point_count):
+            theta, radius_factor = _get_point_angle_and_radius_factor(i, sections, config)
             offset = _texture_offset(z, theta, config)
-            ring_radius = max(0.05, radius_base + offset)
+            ring_radius = max(0.05, (radius_base + offset) * radius_factor)
             theta_rotated = theta + rotation_angle + z_twist
             # Keep Z as the vertical axis; no X/Y axis rotations are applied.
             ring.append((ring_radius * cos(theta_rotated), ring_radius * sin(theta_rotated), z))
@@ -245,14 +278,15 @@ def _build_planter_mesh(config: GeneratorConfig) -> trimesh.Trimesh:
         radius = _inner_base_radius(z, config)
         rotation_angle = _middle_inbound_angle(z, z_top, config)
         z_twist = _z_twist_angle(z, z_top, config)
-        ring = [
-            (
-                radius * cos(((i / sections) * (2.0 * pi)) + rotation_angle + z_twist),
-                radius * sin(((i / sections) * (2.0 * pi)) + rotation_angle + z_twist),
+        ring = []
+        for i in range(point_count):
+            theta, radius_factor = _get_point_angle_and_radius_factor(i, sections, config)
+            inner_radius = radius * radius_factor
+            ring.append((
+                inner_radius * cos(theta + rotation_angle + z_twist),
+                inner_radius * sin(theta + rotation_angle + z_twist),
                 z,
-            )
-            for i in range(sections)
-        ]
+            ))
         inner_rings.append(ring)
 
     vertices: list[tuple[float, float, float]] = []
@@ -266,22 +300,22 @@ def _build_planter_mesh(config: GeneratorConfig) -> trimesh.Trimesh:
         vertices.append((0.0, 0.0, 0.0))
 
     faces: list[list[int]] = []
-    faces.extend(_build_wall_faces(len(outer_rings), sections, 0, reverse=False))
-    faces.extend(_build_wall_faces(len(inner_rings), sections, inner_offset, reverse=True))
+    faces.extend(_build_wall_faces(len(outer_rings), point_count, 0, reverse=False))
+    faces.extend(_build_wall_faces(len(inner_rings), point_count, inner_offset, reverse=True))
 
     if config.include_bottom:
-        for j in range(sections):
+        for j in range(point_count):
             a = 0 + j
-            b = 0 + ((j + 1) % sections)
+            b = 0 + ((j + 1) % point_count)
             faces.append([center_bottom_index, b, a])
 
         outer_base_index = z_levels.index(z_base)
-        outer_base_start = outer_base_index * sections
+        outer_base_start = outer_base_index * point_count
         inner_base_start = inner_offset
-        for j in range(sections):
+        for j in range(point_count):
             a = outer_base_start + j
-            b = outer_base_start + ((j + 1) % sections)
-            c = inner_base_start + ((j + 1) % sections)
+            b = outer_base_start + ((j + 1) % point_count)
+            c = inner_base_start + ((j + 1) % point_count)
             d = inner_base_start + j
             faces.append([a, b, c])
             faces.append([a, c, d])

@@ -6,18 +6,20 @@
   <title>Planter Sleeve Generator</title>
   <style>
     :root {
-      --bg: #f2f4f7;
-      --panel: #ffffff;
-      --ink: #242b33;
-      --muted: #6c7382;
-      --line: #d8dce2;
-      --button: #373f4a;
-      --button-text: #f8fafc;
-      --input-bg: #f9fafe;
-      --input-ink: #23272f;
-      --input-border: #dfe3ea;
-      --shadow: 0 24px 68px rgba(31, 41, 55, 0.12);
-      --panel-shadow: 0 14px 40px rgba(31, 41, 55, 0.08);
+      --bg: #ffffff;
+      --panel: #fafbfc;
+      --ink: #0f172a;
+      --muted: #64748b;
+      --line: #e2e8f0;
+      --button: #1e293b;
+      --button-text: #ffffff;
+      --input-bg: #f8fafc;
+      --input-ink: #0f172a;
+      --input-border: #cbd5e1;
+      --shadow: 0 10px 25px rgba(15, 23, 42, 0.08);
+      --panel-shadow: 0 4px 12px rgba(15, 23, 42, 0.05);
+      --accent: #3b82f6;
+      --accent-light: #dbeafe;
     }
     * { box-sizing: border-box; }
     body {
@@ -324,6 +326,17 @@
               Rim lip (mm)
               <input name="rim_lip" type="number" step="0.1" min="0" value="{{ values.rim_lip }}" required>
             </label>
+            <label>
+              Shape type
+              <select name="shape_type" required>
+                <option value="polygon" {% if values.shape_type == "polygon" %}selected{% endif %}>Polygon (n-sided)</option>
+                <option value="star" {% if values.shape_type == "star" %}selected{% endif %}>Star</option>
+              </select>
+            </label>
+            <label>
+              Star inner ratio (0.1–0.9)
+              <input name="star_inner_ratio" type="number" step="0.05" min="0.1" max="0.9" value="{{ values.star_inner_ratio }}" required>
+            </label>
             <div class="section-heading texture-section"><h3>Texture controls</h3></div>
             <label class="texture-section">
               Texture type
@@ -427,7 +440,7 @@
     const form = document.querySelector("form[action='/generate']");
     const inputNames = [
       "pot_diameter", "clearance", "height", "wall", "base", "taper", "rim_lip",
-      "include_bottom", "texture_type", "texture_strength", "texture_scale", "texture_rotation", "middle_inbound_turns", "z_rotation", "material_type", "sections"
+      "include_bottom", "shape_type", "star_inner_ratio", "texture_type", "texture_strength", "texture_scale", "texture_rotation", "middle_inbound_turns", "z_rotation", "material_type", "sections"
     ];
     const inputs = Object.fromEntries(inputNames.map((name) => [name, form.querySelector(`[name='${name}']`)]));
 
@@ -636,6 +649,9 @@
 
     function buildGeometry() {
       const sections = Math.max(24, Math.floor(numberValue("sections")));
+      const shapeType = inputs.shape_type.value;
+      const starInnerRatio = shapeType === "star" ? Math.max(0.1, Math.min(0.9, numberValue("star_inner_ratio"))) : 1.0;
+      const pointCount = shapeType === "star" ? sections * 2 : sections;
       const profile = buildProfile();
       const includeBottom = !!inputs.include_bottom?.checked;
       const base = numberValue("base");
@@ -651,22 +667,30 @@
         const zRatio = z / height;
         const rotationAtZ = (Math.PI * 2.0) * middleInboundTurns * zRatio;
         const zTwistAtZ = ((zRotationDeg * Math.PI) / 180.0) * zRatio;
-        for (let j = 0; j < sections; j++) {
-          const theta = (j / sections) * Math.PI * 2.0;
+        for (let j = 0; j < pointCount; j++) {
+          let theta, radiusFactor;
+          if (shapeType === "star") {
+            const totalPoints = sections * 2;
+            theta = (j / totalPoints) * Math.PI * 2.0;
+            radiusFactor = (j % 2) === 1 ? starInnerRatio : 1.0;
+          } else {
+            theta = (j / sections) * Math.PI * 2.0;
+            radiusFactor = 1.0;
+          }
           const offset = textureOffset(z, theta);
-          const r = Math.max(0.025, radius + offset);
+          const r = Math.max(0.025, (radius + offset) * radiusFactor);
           const thetaRotated = theta + rotationAtZ + zTwistAtZ;
           vertices.push(r * Math.cos(thetaRotated), r * Math.sin(thetaRotated), z);
-          uvs.push(j / sections, z / numberValue("height"));
+          uvs.push(j / pointCount, z / numberValue("height"));
         }
       }
 
       for (let i = 0; i < profile.length - 1; i++) {
-        for (let j = 0; j < sections; j++) {
-          const a = i * sections + j;
-          const b = i * sections + ((j + 1) % sections);
-          const c = (i + 1) * sections + ((j + 1) % sections);
-          const d = (i + 1) * sections + j;
+        for (let j = 0; j < pointCount; j++) {
+          const a = i * pointCount + j;
+          const b = i * pointCount + ((j + 1) % pointCount);
+          const c = (i + 1) * pointCount + ((j + 1) % pointCount);
+          const d = (i + 1) * pointCount + j;
           indices.push(a, b, c, a, c, d);
         }
       }
@@ -676,20 +700,20 @@
         vertices.push(0, 0, 0);
         uvs.push(0.5, 0.5);
 
-        for (let j = 0; j < sections; j++) {
+        for (let j = 0; j < pointCount; j++) {
           const a = j;
-          const b = (j + 1) % sections;
+          const b = (j + 1) % pointCount;
           indices.push(centerIndex, b, a);
         }
 
         const outerBaseRing = 1;
         const innerBaseRing = profile.length - 1;
-        const outerStart = outerBaseRing * sections;
-        const innerStart = innerBaseRing * sections;
-        for (let j = 0; j < sections; j++) {
+        const outerStart = outerBaseRing * pointCount;
+        const innerStart = innerBaseRing * pointCount;
+        for (let j = 0; j < pointCount; j++) {
           const a = outerStart + j;
-          const b = outerStart + ((j + 1) % sections);
-          const c = innerStart + ((j + 1) % sections);
+          const b = outerStart + ((j + 1) % pointCount);
+          const c = innerStart + ((j + 1) % pointCount);
           const d = innerStart + j;
           indices.push(a, b, c, a, c, d);
         }

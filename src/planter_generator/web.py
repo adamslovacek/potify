@@ -8,7 +8,7 @@ from zipfile import ZIP_DEFLATED, ZipFile
 
 from flask import Flask, render_template, request, send_file
 
-from .model import ExportFormat, GeneratorConfig, TextureType, build_planter_sleeve, export_model
+from .model import ExportFormat, GeneratorConfig, ShapeType, TextureType, build_planter_sleeve, export_model
 
 
 def _to_float(value: str, name: str) -> float:
@@ -57,7 +57,9 @@ def create_app() -> Flask:
         "texture_rotation": "0",
         "middle_inbound_turns": "0",
         "z_rotation": "0",
-        "sections": "192",
+        "shape_type": "polygon",
+        "star_inner_ratio": "0.5",
+        "sections": "256",
         "format": "stl",
     }
 
@@ -74,6 +76,7 @@ def create_app() -> Flask:
         "texture_rotation": _to_float,
         "middle_inbound_turns": _to_float,
         "z_rotation": _to_float,
+        "star_inner_ratio": _to_float,
         "sections": _to_int,
     }
 
@@ -90,6 +93,7 @@ def create_app() -> Flask:
             payload[key] = parser(form.get(key), key)
         payload["include_bottom"] = _to_bool(form.get("include_bottom"))
         payload["texture_type"] = form.get("texture_type", "none")
+        payload["shape_type"] = form.get("shape_type", "polygon")
         payload["material_type"] = form.get("material_type", "concrete")
         payload["format"] = form.get("format", "stl")
         return payload
@@ -119,6 +123,8 @@ def create_app() -> Flask:
                 texture_rotation_deg=_to_float(form.get("texture_rotation"), "texture_rotation"),
                 middle_inbound_turns=_to_float(form.get("middle_inbound_turns"), "middle_inbound_turns"),
                 z_rotation_deg=_to_float(form.get("z_rotation"), "z_rotation"),
+                shape_type=ShapeType(form.get("shape_type", "polygon")),
+                star_inner_ratio=_to_float(form.get("star_inner_ratio"), "star_inner_ratio"),
                 sections=_to_int(form.get("sections"), "sections"),
             )
             fmt = ExportFormat(export_choice)
@@ -186,6 +192,8 @@ def create_app() -> Flask:
                 texture_rotation_deg=payload["texture_rotation"],
                 middle_inbound_turns=payload["middle_inbound_turns"],
                 z_rotation_deg=payload["z_rotation"],
+                shape_type=ShapeType(payload["shape_type"]),
+                star_inner_ratio=payload["star_inner_ratio"],
                 sections=payload["sections"],
             ).validate()
             ExportFormat(str(payload["format"]))

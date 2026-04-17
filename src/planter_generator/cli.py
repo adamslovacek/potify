@@ -75,6 +75,18 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Legacy alias for --middle-inbound.",
     )
     parser.add_argument(
+        "--shape-type",
+        choices=["polygon", "star"],
+        default="polygon",
+        help="Cross-section shape: polygon (n-sided) or star (default: polygon).",
+    )
+    parser.add_argument(
+        "--star-inner-ratio",
+        type=float,
+        default=0.5,
+        help="Inner star point radius ratio (0.1..0.9) for star shapes (default: 0.5).",
+    )
+    parser.add_argument(
         "--sections",
         type=int,
         default=192,
@@ -99,7 +111,7 @@ def main() -> int:
     parser = _build_parser()
     args = parser.parse_args()
 
-    from .model import ExportFormat, GeneratorConfig, build_planter_sleeve, export_model
+    from .model import ExportFormat, GeneratorConfig, ShapeType, build_planter_sleeve, export_model
 
     inner_diameter = args.pot_diameter + (2.0 * args.clearance)
 
@@ -113,6 +125,8 @@ def main() -> int:
         rim_lip_mm=args.rim_lip,
         middle_inbound_turns=args.middle_inbound,
         z_rotation_deg=args.z_rotation,
+        shape_type=ShapeType(args.shape_type),
+        star_inner_ratio=args.star_inner_ratio,
         sections=args.sections,
     )
 
