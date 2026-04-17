@@ -581,6 +581,13 @@
       const fill = new THREE.DirectionalLight(0xffffff, 0.25);
       fill.position.set(-2, -1, -3);
       scene.add(fill);
+
+      // Add grid for x and y at z=1 with 1cm (10 unit) spacing
+      const gridSize = 2000;  // 2000mm = 2m total grid
+      const gridDivisions = 200;  // 200 divisions = 10mm (1cm) each
+      const gridHelper = new THREE.GridHelper(gridSize, gridDivisions, 0x0088ff, 0xcccccc);
+      gridHelper.position.z = 1;  // Position at z=1
+      scene.add(gridHelper);
     }
 
     function initRenderer() {
