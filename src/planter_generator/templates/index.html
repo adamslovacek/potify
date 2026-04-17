@@ -444,15 +444,29 @@
     ];
     const inputs = Object.fromEntries(inputNames.map((name) => [name, form.querySelector(`[name='${name}']`)]));
 
-    let renderer, scene, camera, controls, modelMesh, light, ambient;
+    console.log("Form loaded:", form ? "✓" : "✗");
+    console.log("Canvas loaded:", canvas ? "✓" : "✗");
+    console.log("Input fields loaded:", Object.keys(inputs).filter(k => inputs[k]).length, "/", inputNames.length);
+    console.log("shape_type field:", inputs.shape_type ? "✓" : "✗");
+    console.log("star_inner_ratio field:", inputs.star_inner_ratio ? "✓" : "✗");
     let hasAutoFramedModel = false;
 
     function numberValue(name) {
-      const value = Number(inputs[name]?.value);
-      if (!Number.isFinite(value)) {
-        throw new Error(`${name} is invalid`);
+      try {
+        const field = inputs[name];
+        if (!field) {
+          console.warn(`Field not found: ${name}`);
+          return 0;
+        }
+        const value = Number(field.value);
+        if (!Number.isFinite(value)) {
+          throw new Error(`${name} is invalid`);
+        }
+        return value;
+      } catch (error) {
+        console.error(`Error parsing ${name}:`, error);
+        throw error;
       }
-      return value;
     }
 
     function textureOffset(z, theta) {
@@ -649,7 +663,7 @@
 
     function buildGeometry() {
       const sections = Math.max(24, Math.floor(numberValue("sections")));
-      const shapeType = inputs.shape_type.value;
+      const shapeType = inputs.shape_type?.value || "polygon";
       const starInnerRatio = shapeType === "star" ? Math.max(0.1, Math.min(0.9, numberValue("star_inner_ratio"))) : 1.0;
       const pointCount = shapeType === "star" ? sections * 2 : sections;
       const profile = buildProfile();
@@ -661,6 +675,8 @@
       const vertices = [];
       const uvs = [];
       const indices = [];
+
+      console.log(`[buildGeometry] shape=${shapeType}, sections=${sections}, pointCount=${pointCount}, profile.length=${profile.length}`);
 
       for (let i = 0; i < profile.length; i++) {
         const [radius, z] = profile[i];
@@ -684,6 +700,8 @@
           uvs.push(j / pointCount, z / numberValue("height"));
         }
       }
+
+      console.log(`[buildGeometry] vertices=${vertices.length}, profile rings=${profile.length}`);
 
       for (let i = 0; i < profile.length - 1; i++) {
         for (let j = 0; j < pointCount; j++) {
@@ -974,7 +992,7 @@
 
     function initScene() {
       scene = new THREE.Scene();
-      scene.background = new THREE.Color(0xf5f7fb);
+      scene.background = new THREE.Color(0xffffff);
 
       ambient = new THREE.AmbientLight(0xffffff, 0.75);
       scene.add(ambient);
@@ -1011,7 +1029,7 @@
     function initRenderer() {
       renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
       renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-      renderer.setClearColor(0xf5f7fb, 1);
+      renderer.setClearColor(0xffffff, 1);
     }
 
     function initCamera() {
@@ -1055,30 +1073,36 @@
     }
 
     function setModel() {
-      if (modelMesh) {
-        scene.remove(modelMesh);
-        modelMesh.geometry.dispose();
-        modelMesh.material.dispose();
-      }
-      const geometry = buildGeometry();
-      const material = createMaterial();
-      modelMesh = new THREE.Mesh(geometry, material);
-      scene.add(modelMesh);
-      const box = new THREE.Box3().setFromObject(modelMesh);
-      const radius = box.getBoundingSphere(new THREE.Sphere()).radius;
-      const targetZ = radius * 0.4;
-      const distance = radius * 2.2;
-      if (controls) {
-        controls.minDistance = Math.max(0.4, distance * 0.35);
-        controls.maxDistance = Math.max(distance * 6.0, 2500);
-        if (!hasAutoFramedModel) {
-          camera.position.set(radius * 0.55, -distance, radius * 0.7);
-          controls.target.set(0, 0, targetZ);
-          hasAutoFramedModel = true;
+      try {
+        if (modelMesh) {
+          scene.remove(modelMesh);
+          modelMesh.geometry.dispose();
+          modelMesh.material.dispose();
         }
-        controls.update();
+        const geometry = buildGeometry();
+        console.log("Geometry built successfully:", geometry.attributes.position.count, "vertices");
+        const material = createMaterial();
+        modelMesh = new THREE.Mesh(geometry, material);
+        scene.add(modelMesh);
+        const box = new THREE.Box3().setFromObject(modelMesh);
+        const radius = box.getBoundingSphere(new THREE.Sphere()).radius;
+        const targetZ = radius * 0.4;
+        const distance = radius * 2.2;
+        if (controls) {
+          controls.minDistance = Math.max(0.4, distance * 0.35);
+          controls.maxDistance = Math.max(distance * 6.0, 2500);
+          if (!hasAutoFramedModel) {
+            camera.position.set(radius * 0.55, -distance, radius * 0.7);
+            controls.target.set(0, 0, targetZ);
+            hasAutoFramedModel = true;
+          }
+          controls.update();
+        }
+        renderScene();
+      } catch (error) {
+        console.error("setModel error:", error);
+        previewError.textContent = `Render error: ${error.message}`;
       }
-      renderScene();
     }
 
     function updatePreview() {
@@ -1090,7 +1114,8 @@
           setModel();
         }
       } catch (error) {
-        previewError.textContent = error?.message || "Preview error.";
+        console.error("Preview error:", error);
+        previewError.textContent = `Error: ${error?.message || "Unknown error"}`;
       }
     }
 
@@ -1102,11 +1127,17 @@
 
     function initPreview() {
       if (!renderer) {
-        initRenderer();
-        initCamera();
-        initScene();
-        resizeRenderer();
-        animate();
+        try {
+          initRenderer();
+          initCamera();
+          initScene();
+          resizeRenderer();
+          animate();
+        } catch (error) {
+          console.error("Failed to init preview:", error);
+          previewError.textContent = `Init failed: ${error.message}`;
+          return;
+        }
       }
       setModel();
     }
