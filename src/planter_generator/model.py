@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from math import cos, floor, pi, radians, sin, tan
+from math import cos, pi, radians, sin, tan
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
@@ -212,6 +212,7 @@ def _build_planter_mesh(config: GeneratorConfig) -> trimesh.Trimesh:
         *[(i / (height_steps - 1)) * z_top for i in range(height_steps)],
     ]))
 
+    # Equivalent to linear_extrude(height=..., twist=...) around Z axis.
     outer_rings = []
     for z in z_levels:
         radius_base = _outer_base_radius(z, config)
@@ -222,7 +223,8 @@ def _build_planter_mesh(config: GeneratorConfig) -> trimesh.Trimesh:
             offset = _texture_offset(z, theta, config)
             ring_radius = max(0.05, radius_base + offset)
             theta_rotated = theta + rotation_angle
-            ring.append((ring_radius * cos(theta_rotated), z, ring_radius * sin(theta_rotated)))
+            # Keep Z as the vertical axis; no X/Y axis rotations are applied.
+            ring.append((ring_radius * cos(theta_rotated), ring_radius * sin(theta_rotated), z))
         outer_rings.append(ring)
 
     inner_z_levels = sorted(set([
@@ -237,8 +239,8 @@ def _build_planter_mesh(config: GeneratorConfig) -> trimesh.Trimesh:
         ring = [
             (
                 radius * cos(((i / sections) * (2.0 * pi)) + rotation_angle),
-                z,
                 radius * sin(((i / sections) * (2.0 * pi)) + rotation_angle),
+                z,
             )
             for i in range(sections)
         ]
