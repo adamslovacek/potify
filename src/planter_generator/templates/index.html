@@ -438,17 +438,36 @@
     const canvas = document.getElementById("preview-canvas");
     const previewError = document.getElementById("preview-error");
     const form = document.querySelector("form[action='/generate']");
+    
+    if (!canvas) {
+      console.error("Canvas element not found!");
+      document.body.innerHTML += "<p>Error: Canvas element not found</p>";
+    }
+    if (!previewError) {
+      console.error("Preview error element not found!");
+    }
+    if (!form) {
+      console.error("Form not found!");
+    }
+    
     const inputNames = [
       "pot_diameter", "clearance", "height", "wall", "base", "taper", "rim_lip",
       "include_bottom", "shape_type", "star_inner_ratio", "texture_type", "texture_strength", "texture_scale", "texture_rotation", "middle_inbound_turns", "z_rotation", "material_type", "sections"
     ];
-    const inputs = Object.fromEntries(inputNames.map((name) => [name, form.querySelector(`[name='${name}']`)]));
+    const inputs = Object.fromEntries(inputNames.map((name) => [name, form?.querySelector(`[name='${name}']`)]));
 
     console.log("Form loaded:", form ? "✓" : "✗");
     console.log("Canvas loaded:", canvas ? "✓" : "✗");
     console.log("Input fields loaded:", Object.keys(inputs).filter(k => inputs[k]).length, "/", inputNames.length);
     console.log("shape_type field:", inputs.shape_type ? "✓" : "✗");
     console.log("star_inner_ratio field:", inputs.star_inner_ratio ? "✓" : "✗");
+
+    let renderer = null;
+    let scene = null;
+    let camera = null;
+    let controls = null;
+    let modelMesh = null;
+    let ambient = null;
     let hasAutoFramedModel = false;
 
     function numberValue(name) {
@@ -1107,15 +1126,23 @@
 
     function updatePreview() {
       try {
+        if (!canvas) {
+          console.warn("Canvas not available yet");
+          return;
+        }
         previewError.textContent = "";
         if (!renderer) {
+          console.log("Initializing preview...");
           initPreview();
         } else {
+          console.log("Updating model...");
           setModel();
         }
       } catch (error) {
         console.error("Preview error:", error);
-        previewError.textContent = `Error: ${error?.message || "Unknown error"}`;
+        if (previewError) {
+          previewError.textContent = `Error: ${error?.message || "Unknown error"}`;
+        }
       }
     }
 
@@ -1126,6 +1153,10 @@
     }
 
     function initPreview() {
+      if (!canvas) {
+        console.error("Cannot initialize preview: canvas is null");
+        return;
+      }
       if (!renderer) {
         try {
           initRenderer();
@@ -1135,7 +1166,9 @@
           animate();
         } catch (error) {
           console.error("Failed to init preview:", error);
-          previewError.textContent = `Init failed: ${error.message}`;
+          if (previewError) {
+            previewError.textContent = `Init failed: ${error.message}`;
+          }
           return;
         }
       }
@@ -1159,12 +1192,26 @@
     }
 
     for (const element of Object.values(inputs)) {
-      element.addEventListener("input", updatePreview);
-      element.addEventListener("change", updatePreview);
+      if (element) {
+        element.addEventListener("input", updatePreview);
+        element.addEventListener("change", updatePreview);
+      }
     }
 
     window.addEventListener("resize", onWindowResize);
-    updatePreview();
+    
+    // Initialize preview with proper error handling
+    if (canvas && previewError) {
+      try {
+        updatePreview();
+      } catch (error) {
+        console.error("Failed to initialize preview:", error);
+        previewError.textContent = `Failed to initialize: ${error.message}`;
+      }
+    } else {
+      console.warn("Canvas or error element missing, skipping preview init");
+    }
+    
     pollSourceVersion();
     setInterval(pollSourceVersion, 1800);
   </script>
