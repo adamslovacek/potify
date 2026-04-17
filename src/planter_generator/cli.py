@@ -66,7 +66,7 @@ def _build_parser() -> argparse.ArgumentParser:
         "--z-rotation",
         type=float,
         default=0.0,
-        help="Rotate generated geometry around vertical Z axis in degrees (default: 0).",
+        help="Twist around vertical Z axis in degrees at top height (bottom is always 0, default: 0).",
     )
     parser.add_argument(
         "--twist-turns",

@@ -90,6 +90,11 @@ def _middle_inbound_angle(z: float, height: float, config: GeneratorConfig) -> f
     return (2.0 * pi) * config.middle_inbound_turns * z_ratio
 
 
+def _z_twist_angle(z: float, height: float, config: GeneratorConfig) -> float:
+    z_ratio = z / max(1e-6, height)
+    return radians(config.z_rotation_deg) * z_ratio
+
+
 def _outer_base_radius(z: float, config: GeneratorConfig) -> float:
     z_base = _effective_base_z(config)
     z_top = config.height_mm
@@ -206,8 +211,6 @@ def _build_planter_mesh(config: GeneratorConfig) -> trimesh.Trimesh:
     z_lip = max(z_base, z_top - config.wall_thickness_mm)
     sections = max(24, int(config.sections))
     height_steps = max(8, int(config.height_steps))
-    z_rotation = radians(config.z_rotation_deg)
-
     z_levels = sorted(set([
         0.0,
         z_base,
@@ -221,12 +224,13 @@ def _build_planter_mesh(config: GeneratorConfig) -> trimesh.Trimesh:
     for z in z_levels:
         radius_base = _outer_base_radius(z, config)
         rotation_angle = _middle_inbound_angle(z, z_top, config)
+        z_twist = _z_twist_angle(z, z_top, config)
         ring = []
         for i in range(sections):
             theta = (i / sections) * (2.0 * pi)
             offset = _texture_offset(z, theta, config)
             ring_radius = max(0.05, radius_base + offset)
-            theta_rotated = theta + rotation_angle + z_rotation
+            theta_rotated = theta + rotation_angle + z_twist
             # Keep Z as the vertical axis; no X/Y axis rotations are applied.
             ring.append((ring_radius * cos(theta_rotated), ring_radius * sin(theta_rotated), z))
         outer_rings.append(ring)
@@ -240,10 +244,11 @@ def _build_planter_mesh(config: GeneratorConfig) -> trimesh.Trimesh:
     for z in inner_z_levels:
         radius = _inner_base_radius(z, config)
         rotation_angle = _middle_inbound_angle(z, z_top, config)
+        z_twist = _z_twist_angle(z, z_top, config)
         ring = [
             (
-                radius * cos(((i / sections) * (2.0 * pi)) + rotation_angle + z_rotation),
-                radius * sin(((i / sections) * (2.0 * pi)) + rotation_angle + z_rotation),
+                radius * cos(((i / sections) * (2.0 * pi)) + rotation_angle + z_twist),
+                radius * sin(((i / sections) * (2.0 * pi)) + rotation_angle + z_twist),
                 z,
             )
             for i in range(sections)
