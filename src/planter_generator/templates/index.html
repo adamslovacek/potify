@@ -309,6 +309,15 @@
       color: var(--muted);
       font-weight: 500;
     }
+    .shape-control[hidden] {
+      display: none;
+    }
+    .field-hint {
+      margin-top: -2px;
+      font-size: 0.83rem;
+      line-height: 1.35;
+      color: var(--muted);
+    }
     @media (max-width: 980px) {
       .layout { grid-template-columns: 1fr; }
       .menu-panel { max-height: 46vh; }
@@ -437,11 +446,38 @@
                   <select name="shape_type" required>
                     <option value="polygon" {% if values.shape_type == "polygon" %}selected{% endif %}>Polygon (n-sided)</option>
                     <option value="star" {% if values.shape_type == "star" %}selected{% endif %}>Star</option>
+                    <option value="ellipse" {% if values.shape_type == "ellipse" %}selected{% endif %}>Ellipse</option>
+                    <option value="rounded_square" {% if values.shape_type == "rounded_square" %}selected{% endif %}>Rounded Square</option>
+                    <option value="diamond" {% if values.shape_type == "diamond" %}selected{% endif %}>Diamond</option>
+                    <option value="squircle" {% if values.shape_type == "squircle" %}selected{% endif %}>Squircle</option>
+                    <option value="clover" {% if values.shape_type == "clover" %}selected{% endif %}>Clover</option>
+                    <option value="scallop" {% if values.shape_type == "scallop" %}selected{% endif %}>Scallop</option>
+                    <option value="gear" {% if values.shape_type == "gear" %}selected{% endif %}>Gear</option>
+                    <option value="flower" {% if values.shape_type == "flower" %}selected{% endif %}>Flower</option>
+                    <option value="teardrop" {% if values.shape_type == "teardrop" %}selected{% endif %}>Teardrop</option>
+                    <option value="lens" {% if values.shape_type == "lens" %}selected{% endif %}>Lens</option>
                   </select>
                 </label>
-                <label>
+                <div class="field-hint">Additional shape-specific settings appear only for shapes that use them.</div>
+                <label class="shape-control" data-shapes="star gear flower">
                   Star inner ratio (0.1–0.9)
                   <input name="star_inner_ratio" type="number" step="0.05" min="0.1" max="0.9" value="{{ values.star_inner_ratio }}" required>
+                </label>
+                <label class="shape-control" data-shapes="ellipse rounded_square diamond squircle teardrop lens">
+                  Shape aspect ratio (0.4-2.5)
+                  <input name="shape_aspect_ratio" type="number" step="0.05" min="0.4" max="2.5" value="{{ values.shape_aspect_ratio or '1.0' }}" required>
+                </label>
+                <label class="shape-control" data-shapes="rounded_square squircle scallop gear flower">
+                  Shape roundness (0-1)
+                  <input name="shape_roundness" type="number" step="0.05" min="0" max="1" value="{{ values.shape_roundness or '0.5' }}" required>
+                </label>
+                <label class="shape-control" data-shapes="clover scallop flower teardrop lens">
+                  Shape wave depth (0-0.95)
+                  <input name="shape_wave_depth" type="number" step="0.05" min="0" max="0.95" value="{{ values.shape_wave_depth or '0.35' }}" required>
+                </label>
+                <label class="shape-control" data-shapes="clover scallop flower">
+                  Shape wave count (2-24)
+                  <input name="shape_wave_count" type="number" step="1" min="2" max="24" value="{{ values.shape_wave_count or '6' }}" required>
                 </label>
                 <label>
                   Middle inbound (0-50, step 0.1)
@@ -455,8 +491,8 @@
                   Z twist at top (deg)
                   <input name="z_rotation" type="number" step="1" min="-3600" max="3600" value="{{ values.z_rotation or '0' }}" required>
                 </label>
-                <label>
-                  Number of sides (n) for polygon/star
+                <label class="shape-control" data-shapes="polygon star gear">
+                  Number of sides / teeth
                   <input name="sections" type="number" step="1" min="3" value="{{ values.sections }}" required>
                 </label>
               </div>
@@ -611,6 +647,7 @@
     const textureImageInput = document.getElementById("texture-image");
     const presetSelect = document.getElementById("preset-select");
     const applyPresetButton = document.getElementById("apply-preset-btn");
+    const shapeControls = Array.from(document.querySelectorAll(".shape-control[data-shapes]"));
 
     const imageDisplacementState = {
       data: null,
@@ -632,26 +669,33 @@
     }
 
     function applyLoadedConfig(data) {
+      const normalized = {
+        shape_aspect_ratio: 1.0,
+        shape_roundness: 0.5,
+        shape_wave_depth: 0.35,
+        shape_wave_count: 6,
+        ...data,
+      };
       if (!("texture_scale_u" in data) && ("texture_scale" in data)) {
-        data.texture_scale_u = data.texture_scale;
+        normalized.texture_scale_u = data.texture_scale;
       }
       if (!("texture_scale_v" in data) && ("texture_scale" in data)) {
-        data.texture_scale_v = data.texture_scale;
+        normalized.texture_scale_v = data.texture_scale;
       }
       if (!("texture_offset_u" in data)) {
-        data.texture_offset_u = 0;
+        normalized.texture_offset_u = 0;
       }
       if (!("texture_offset_v" in data)) {
-        data.texture_offset_v = 0;
+        normalized.texture_offset_v = 0;
       }
 
       for (const [name, element] of Object.entries(inputs)) {
-        if (!element || !(name in data)) continue;
+        if (!element || !(name in normalized)) continue;
         if (element.type === "checkbox") {
-          element.checked = !!data[name];
+          element.checked = !!normalized[name];
           continue;
         }
-        element.value = String(data[name]);
+        element.value = String(normalized[name]);
       }
 
       // Keep backward compatibility with older config exports.
@@ -659,6 +703,7 @@
         inputs.middle_inbound_turns.value = String(data.twist_turns);
       }
 
+      updateShapeFieldVisibility();
       updatePreview();
     }
 
@@ -724,6 +769,10 @@
       normalized.texture_offset_v = snap(clamp(Number(normalized.texture_offset_v) || 0, -2.0, 2.0), 0.05);
       normalized.texture_rotation = snap(clamp(Number(normalized.texture_rotation) || 0, 0, 180), 1);
       normalized.star_inner_ratio = snap(clamp(Number(normalized.star_inner_ratio) || 0.5, 0.45, 0.8), 0.05);
+      normalized.shape_aspect_ratio = snap(clamp(Number(normalized.shape_aspect_ratio) || 1.0, 0.6, 1.8), 0.05);
+      normalized.shape_roundness = snap(clamp(Number(normalized.shape_roundness) || 0.5, 0.15, 0.85), 0.05);
+      normalized.shape_wave_depth = snap(clamp(Number(normalized.shape_wave_depth) || 0.35, 0.1, 0.75), 0.05);
+      normalized.shape_wave_count = snap(clamp(Number(normalized.shape_wave_count) || 6, 3, 12), 1);
       return normalized;
     }
 
@@ -758,7 +807,7 @@
     
     const inputNames = [
       "pot_diameter", "clearance", "height", "wall", "base", "taper", "rim_lip",
-      "include_bottom", "shape_type", "star_inner_ratio", "texture_type", "texture_strength", "texture_scale", "texture_scale_u", "texture_scale_v", "texture_offset_u", "texture_offset_v", "texture_rotation", "texture_displacement_mode", "texture_gray_black", "texture_gray_white", "texture_gray_midpoint", "texture_gray_invert", "middle_inbound_turns", "middle_inbound_z", "z_rotation", "material_type", "sections"
+      "include_bottom", "shape_type", "star_inner_ratio", "shape_aspect_ratio", "shape_roundness", "shape_wave_depth", "shape_wave_count", "texture_type", "texture_strength", "texture_scale", "texture_scale_u", "texture_scale_v", "texture_offset_u", "texture_offset_v", "texture_rotation", "texture_displacement_mode", "texture_gray_black", "texture_gray_white", "texture_gray_midpoint", "texture_gray_invert", "middle_inbound_turns", "middle_inbound_z", "z_rotation", "material_type", "sections"
     ];
     const inputs = Object.fromEntries(inputNames.map((name) => [name, form?.querySelector(`[name='${name}']`)]));
 
@@ -767,6 +816,14 @@
     console.log("Input fields loaded:", Object.keys(inputs).filter(k => inputs[k]).length, "/", inputNames.length);
     console.log("shape_type field:", inputs.shape_type ? "✓" : "✗");
     console.log("star_inner_ratio field:", inputs.star_inner_ratio ? "✓" : "✗");
+
+    function updateShapeFieldVisibility() {
+      const shapeType = inputs.shape_type?.value || "polygon";
+      for (const control of shapeControls) {
+        const shapeList = (control.dataset.shapes || "").split(/\s+/).filter(Boolean);
+        control.hidden = !shapeList.includes(shapeType);
+      }
+    }
 
     let renderer = null;
     let scene = null;
@@ -810,6 +867,88 @@
       } else if (current > heightValue) {
         inputs.middle_inbound_z.value = String(heightValue.toFixed(1));
       }
+    }
+
+    function superellipseRadiusFactor(theta, aspectRatio, exponent) {
+      const aspect = Math.max(1e-6, aspectRatio);
+      const denom = (Math.abs(Math.cos(theta)) / aspect) ** exponent + Math.abs(Math.sin(theta)) ** exponent;
+      return 1.0 / Math.max(1e-6, (denom ** (1.0 / exponent)) * Math.max(1.0, aspect));
+    }
+
+    function currentShapeConfig() {
+      return {
+        type: inputs.shape_type?.value || "polygon",
+        sections: Math.max(3, Math.floor(numberValue("sections"))),
+        starInnerRatio: clamp(numberValue("star_inner_ratio"), 0.1, 0.9),
+        aspectRatio: clamp(numberValue("shape_aspect_ratio"), 0.4, 2.5),
+        roundness: clamp(numberValue("shape_roundness"), 0.0, 1.0),
+        waveDepth: clamp(numberValue("shape_wave_depth"), 0.0, 0.95),
+        waveCount: Math.max(2, Math.min(24, Math.floor(numberValue("shape_wave_count")))),
+      };
+    }
+
+    function shapeRadiusFactor(theta, shape) {
+      if (shape.type === "ellipse") {
+        return superellipseRadiusFactor(theta, shape.aspectRatio, 2.0);
+      }
+      if (shape.type === "rounded_square") {
+        return superellipseRadiusFactor(theta, shape.aspectRatio, 8.0 - (5.0 * shape.roundness));
+      }
+      if (shape.type === "diamond") {
+        return superellipseRadiusFactor(theta, shape.aspectRatio, 1.0);
+      }
+      if (shape.type === "squircle") {
+        return superellipseRadiusFactor(theta, shape.aspectRatio, 5.0 - (2.2 * shape.roundness));
+      }
+      if (shape.type === "clover") {
+        const lobe = 0.5 + (0.5 * Math.cos(shape.waveCount * theta));
+        return Math.max(0.05, (1.0 - shape.waveDepth) + (shape.waveDepth * lobe));
+      }
+      if (shape.type === "scallop") {
+        const scallop = Math.abs(Math.sin((shape.waveCount * theta) * 0.5)) ** (0.65 + (0.85 * shape.roundness));
+        return Math.max(0.05, 1.0 - (shape.waveDepth * scallop));
+      }
+      if (shape.type === "gear") {
+        const tooth = 0.5 + (0.5 * Math.cos(shape.sections * theta));
+        const sharpened = tooth ** (1.3 + (4.0 * (1.0 - shape.roundness)));
+        return Math.max(0.05, shape.starInnerRatio + ((1.0 - shape.starInnerRatio) * sharpened));
+      }
+      if (shape.type === "flower") {
+        const petal = 0.5 + (0.5 * Math.cos(shape.waveCount * theta));
+        const bloom = petal ** (0.9 + (1.6 * (1.0 - shape.roundness)));
+        const valley = Math.max(0.05, shape.starInnerRatio * (1.0 - (0.45 * shape.waveDepth)));
+        return Math.max(0.05, valley + ((1.0 - valley) * bloom));
+      }
+      if (shape.type === "teardrop") {
+        const base = superellipseRadiusFactor(theta, shape.aspectRatio, 2.0);
+        return Math.max(0.05, base * ((1.0 - (shape.waveDepth * Math.sin(theta))) / (1.0 + shape.waveDepth)));
+      }
+      if (shape.type === "lens") {
+        const base = superellipseRadiusFactor(theta, shape.aspectRatio, 2.0);
+        return Math.max(0.05, base * ((1.0 - shape.waveDepth) + (shape.waveDepth * Math.abs(Math.cos(theta)))));
+      }
+      return 1.0;
+    }
+
+    function shapePointCount(shape) {
+      if (shape.type === "polygon") return shape.sections;
+      if (shape.type === "star") return shape.sections * 2;
+      const baseCount = Math.max(48, shape.sections * 8, shape.waveCount * 10);
+      if (["gear", "clover", "scallop", "flower"].includes(shape.type)) {
+        return Math.max(60, baseCount);
+      }
+      return baseCount;
+    }
+
+    function pointAngleAndRadiusFactor(index, pointCount, shape) {
+      const theta = (index / pointCount) * Math.PI * 2.0;
+      if (shape.type === "polygon") {
+        return { theta, radiusFactor: 1.0 };
+      }
+      if (shape.type === "star") {
+        return { theta, radiusFactor: (index % 2) === 1 ? shape.starInnerRatio : 1.0 };
+      }
+      return { theta, radiusFactor: shapeRadiusFactor(theta, shape) };
     }
 
     function textureOffset(z, theta) {
@@ -1142,10 +1281,8 @@
     }
 
     function buildGeometry() {
-      const sections = Math.max(3, Math.floor(numberValue("sections")));
-      const shapeType = inputs.shape_type?.value || "polygon";
-      const starInnerRatio = shapeType === "star" ? Math.max(0.1, Math.min(0.9, numberValue("star_inner_ratio"))) : 1.0;
-      const pointCount = shapeType === "star" ? sections * 2 : sections;
+      const shape = currentShapeConfig();
+      const pointCount = shapePointCount(shape);
       const profile = buildProfile();
       const includeBottom = !!inputs.include_bottom?.checked;
       const base = numberValue("base");
@@ -1157,7 +1294,7 @@
       const uvs = [];
       const indices = [];
 
-      console.log(`[buildGeometry] shape=${shapeType}, sections=${sections}, pointCount=${pointCount}, profile.length=${profile.length}`);
+      console.log(`[buildGeometry] shape=${shape.type}, sections=${shape.sections}, pointCount=${pointCount}, profile.length=${profile.length}`);
 
       for (let i = 0; i < profile.length; i++) {
         const [radius, z] = profile[i];
@@ -1166,20 +1303,12 @@
         const rotationAtZ = (Math.PI * 2.0) * middleInboundTurns * inboundRatio;
         const zTwistAtZ = ((zRotationDeg * Math.PI) / 180.0) * zRatio;
         for (let j = 0; j < pointCount; j++) {
-          let theta, radiusFactor;
-          if (shapeType === "star") {
-            const totalPoints = sections * 2;
-            theta = (j / totalPoints) * Math.PI * 2.0;
-            radiusFactor = (j % 2) === 1 ? starInnerRatio : 1.0;
-          } else {
-            theta = (j / sections) * Math.PI * 2.0;
-            radiusFactor = 1.0;
-          }
+          const { theta, radiusFactor } = pointAngleAndRadiusFactor(j, pointCount, shape);
           const offset = textureOffset(z, theta);
           const r = Math.max(0.025, (radius + offset) * radiusFactor);
           const thetaRotated = theta + rotationAtZ + zTwistAtZ;
           vertices.push(r * Math.cos(thetaRotated), r * Math.sin(thetaRotated), z);
-          uvs.push(j / pointCount, z / numberValue("height"));
+          uvs.push(j / pointCount, z / height);
         }
       }
 
@@ -1687,6 +1816,11 @@
       }
     }
 
+    if (inputs.shape_type) {
+      inputs.shape_type.addEventListener("input", updateShapeFieldVisibility);
+      inputs.shape_type.addEventListener("change", updateShapeFieldVisibility);
+    }
+
     if (loadConfigButton && loadConfigInput) {
       loadConfigButton.addEventListener("click", () => loadConfigInput.click());
       loadConfigInput.addEventListener("change", handleConfigFileSelection);
@@ -1705,6 +1839,7 @@
     }
 
     window.addEventListener("resize", onWindowResize);
+    updateShapeFieldVisibility();
     
     // Initialize preview with proper error handling
     if (canvas && previewError) {

@@ -102,6 +102,10 @@ def create_app() -> Flask:
         "z_rotation": "0",
         "shape_type": "polygon",
         "star_inner_ratio": "0.5",
+        "shape_aspect_ratio": "1.0",
+        "shape_roundness": "0.5",
+        "shape_wave_depth": "0.35",
+        "shape_wave_count": "6",
         "sections": "6",
         "format": "stl",
     }
@@ -128,6 +132,10 @@ def create_app() -> Flask:
         "middle_inbound_z": _to_float,
         "z_rotation": _to_float,
         "star_inner_ratio": _to_float,
+        "shape_aspect_ratio": _to_float,
+        "shape_roundness": _to_float,
+        "shape_wave_depth": _to_float,
+        "shape_wave_count": _to_int,
         "sections": _to_int,
     }
 
@@ -205,6 +213,10 @@ def create_app() -> Flask:
                 z_rotation_deg=_to_float(form.get("z_rotation"), "z_rotation"),
                 shape_type=ShapeType(form.get("shape_type", "polygon")),
                 star_inner_ratio=_to_float(form.get("star_inner_ratio"), "star_inner_ratio"),
+                shape_aspect_ratio=_to_float(form.get("shape_aspect_ratio"), "shape_aspect_ratio"),
+                shape_roundness=_to_float(form.get("shape_roundness"), "shape_roundness"),
+                shape_wave_depth=_to_float(form.get("shape_wave_depth"), "shape_wave_depth"),
+                shape_wave_count=_to_int(form.get("shape_wave_count"), "shape_wave_count"),
                 sections=_to_int(form.get("sections"), "sections"),
             )
             fmt = ExportFormat(export_choice)
@@ -288,6 +300,10 @@ def create_app() -> Flask:
                 z_rotation_deg=payload["z_rotation"],
                 shape_type=ShapeType(payload["shape_type"]),
                 star_inner_ratio=payload["star_inner_ratio"],
+                shape_aspect_ratio=payload["shape_aspect_ratio"],
+                shape_roundness=payload["shape_roundness"],
+                shape_wave_depth=payload["shape_wave_depth"],
+                shape_wave_count=payload["shape_wave_count"],
                 sections=payload["sections"],
             ).validate()
             ExportFormat(str(payload["format"]))

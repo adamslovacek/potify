@@ -122,9 +122,22 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--shape-type",
-        choices=["polygon", "star"],
+        choices=[
+            "polygon",
+            "star",
+            "ellipse",
+            "rounded_square",
+            "diamond",
+            "squircle",
+            "clover",
+            "scallop",
+            "gear",
+            "flower",
+            "teardrop",
+            "lens",
+        ],
         default="polygon",
-        help="Cross-section shape: polygon (n-sided) or star (default: polygon).",
+        help="Cross-section shape (default: polygon).",
     )
     parser.add_argument(
         "--star-inner-ratio",
@@ -133,10 +146,34 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Inner star point radius ratio (0.1..0.9) for star shapes (default: 0.5).",
     )
     parser.add_argument(
+        "--shape-aspect-ratio",
+        type=float,
+        default=1.0,
+        help="Aspect ratio for ellipse-like shapes in range 0.4..2.5 (default: 1.0).",
+    )
+    parser.add_argument(
+        "--shape-roundness",
+        type=float,
+        default=0.5,
+        help="Corner softness or tooth softness in range 0..1 (default: 0.5).",
+    )
+    parser.add_argument(
+        "--shape-wave-depth",
+        type=float,
+        default=0.35,
+        help="Depth for clover/scallop/flower/teardrop/lens modulation in range 0..0.95 (default: 0.35).",
+    )
+    parser.add_argument(
+        "--shape-wave-count",
+        type=int,
+        default=6,
+        help="Wave or petal count for supported shapes in range 2..24 (default: 6).",
+    )
+    parser.add_argument(
         "--sections",
         type=int,
         default=6,
-        help="Number of sides (n) for polygon/star shape (default: 6).",
+        help="Primary divisions or side count for shape generation (default: 6).",
     )
     parser.add_argument(
         "--format",
@@ -181,6 +218,10 @@ def main() -> int:
         z_rotation_deg=args.z_rotation,
         shape_type=ShapeType(args.shape_type),
         star_inner_ratio=args.star_inner_ratio,
+        shape_aspect_ratio=args.shape_aspect_ratio,
+        shape_roundness=args.shape_roundness,
+        shape_wave_depth=args.shape_wave_depth,
+        shape_wave_count=args.shape_wave_count,
         sections=args.sections,
     )
 

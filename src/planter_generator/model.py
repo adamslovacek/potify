@@ -29,6 +29,16 @@ class TextureType(str, Enum):
 class ShapeType(str, Enum):
     POLYGON = "polygon"
     STAR = "star"
+    ELLIPSE = "ellipse"
+    ROUNDED_SQUARE = "rounded_square"
+    DIAMOND = "diamond"
+    SQUIRCLE = "squircle"
+    CLOVER = "clover"
+    SCALLOP = "scallop"
+    GEAR = "gear"
+    FLOWER = "flower"
+    TEARDROP = "teardrop"
+    LENS = "lens"
 
 
 class DisplacementMode(str, Enum):
@@ -67,6 +77,10 @@ class GeneratorConfig:
     z_rotation_deg: float = 0.0
     shape_type: ShapeType = ShapeType.POLYGON
     star_inner_ratio: float = 0.5
+    shape_aspect_ratio: float = 1.0
+    shape_roundness: float = 0.5
+    shape_wave_depth: float = 0.35
+    shape_wave_count: int = 6
     sections: int = 6
     height_steps: int = 64
 
@@ -118,6 +132,14 @@ class GeneratorConfig:
             raise ValueError("z_rotation_deg absolute value must be <= 3600")
         if self.star_inner_ratio < 0.1 or self.star_inner_ratio > 0.9:
             raise ValueError("star_inner_ratio must be in range [0.1, 0.9]")
+        if self.shape_aspect_ratio < 0.4 or self.shape_aspect_ratio > 2.5:
+            raise ValueError("shape_aspect_ratio must be in range [0.4, 2.5]")
+        if self.shape_roundness < 0.0 or self.shape_roundness > 1.0:
+            raise ValueError("shape_roundness must be in range [0, 1]")
+        if self.shape_wave_depth < 0.0 or self.shape_wave_depth > 0.95:
+            raise ValueError("shape_wave_depth must be in range [0, 0.95]")
+        if self.shape_wave_count < 2 or self.shape_wave_count > 24:
+            raise ValueError("shape_wave_count must be in range [2, 24]")
         if self.sections < 3:
             raise ValueError("sections must be >= 3")
         if self.height_steps < 8:
@@ -148,22 +170,80 @@ def _z_twist_angle(z: float, height: float, config: GeneratorConfig) -> float:
     return radians(config.z_rotation_deg) * z_ratio
 
 
-def _get_point_angle_and_radius_factor(i: int, sections: int, config: GeneratorConfig) -> tuple[float, float]:
-    """
-    Get the angle and radius factor for the i-th point in the cross-section.
-    For polygon: returns angle and radius_factor=1.0 for all points.
-    For star: alternates between outer (1.0) and inner (star_inner_ratio) radii.
-    """
+def _clamp(value: float, low: float, high: float) -> float:
+    return max(low, min(high, value))
+
+
+def _superellipse_radius_factor(theta: float, aspect_ratio: float, exponent: float) -> float:
+    aspect = max(1e-6, aspect_ratio)
+    denom = ((abs(cos(theta)) / aspect) ** exponent) + (abs(sin(theta)) ** exponent)
+    return 1.0 / max(1e-6, (denom ** (1.0 / exponent)) * max(1.0, aspect))
+
+
+def _shape_radius_factor(theta: float, config: GeneratorConfig) -> float:
+    aspect = _clamp(config.shape_aspect_ratio, 0.4, 2.5)
+    roundness = _clamp(config.shape_roundness, 0.0, 1.0)
+    depth = _clamp(config.shape_wave_depth, 0.0, 0.95)
+    wave_count = max(2, int(config.shape_wave_count))
+    inner_ratio = _clamp(config.star_inner_ratio, 0.1, 0.9)
+
+    if config.shape_type == ShapeType.ELLIPSE:
+        return _superellipse_radius_factor(theta, aspect, 2.0)
+    if config.shape_type == ShapeType.ROUNDED_SQUARE:
+        exponent = 8.0 - (5.0 * roundness)
+        return _superellipse_radius_factor(theta, aspect, exponent)
+    if config.shape_type == ShapeType.DIAMOND:
+        return _superellipse_radius_factor(theta, aspect, 1.0)
+    if config.shape_type == ShapeType.SQUIRCLE:
+        exponent = 5.0 - (2.2 * roundness)
+        return _superellipse_radius_factor(theta, aspect, exponent)
+    if config.shape_type == ShapeType.CLOVER:
+        lobe = 0.5 + (0.5 * cos(wave_count * theta))
+        return max(0.05, (1.0 - depth) + (depth * lobe))
+    if config.shape_type == ShapeType.SCALLOP:
+        scallop = abs(sin((wave_count * theta) * 0.5)) ** (0.65 + (0.85 * roundness))
+        return max(0.05, 1.0 - (depth * scallop))
+    if config.shape_type == ShapeType.GEAR:
+        tooth = 0.5 + (0.5 * cos(config.sections * theta))
+        sharpened = tooth ** (1.3 + (4.0 * (1.0 - roundness)))
+        return max(0.05, inner_ratio + ((1.0 - inner_ratio) * sharpened))
+    if config.shape_type == ShapeType.FLOWER:
+        petal = 0.5 + (0.5 * cos(wave_count * theta))
+        bloom = petal ** (0.9 + (1.6 * (1.0 - roundness)))
+        valley = max(0.05, inner_ratio * (1.0 - (0.45 * depth)))
+        return max(0.05, valley + ((1.0 - valley) * bloom))
+    if config.shape_type == ShapeType.TEARDROP:
+        base = _superellipse_radius_factor(theta, aspect, 2.0)
+        return max(0.05, base * ((1.0 - (depth * sin(theta))) / (1.0 + depth)))
+    if config.shape_type == ShapeType.LENS:
+        base = _superellipse_radius_factor(theta, aspect, 2.0)
+        return max(0.05, base * ((1.0 - depth) + (depth * abs(cos(theta)))))
+    return 1.0
+
+
+def _shape_point_count(config: GeneratorConfig) -> int:
+    sections = max(3, int(config.sections))
     if config.shape_type == ShapeType.POLYGON:
-        angle = (i / sections) * (2.0 * pi)
+        return sections
+    if config.shape_type == ShapeType.STAR:
+        return sections * 2
+    base_count = max(48, sections * 8, int(config.shape_wave_count) * 10)
+    if config.shape_type in {ShapeType.GEAR, ShapeType.CLOVER, ShapeType.SCALLOP, ShapeType.FLOWER}:
+        return max(60, base_count)
+    return base_count
+
+
+def _get_point_angle_and_radius_factor(i: int, point_count: int, config: GeneratorConfig) -> tuple[float, float]:
+    if config.shape_type == ShapeType.POLYGON:
+        angle = (i / point_count) * (2.0 * pi)
         return angle, 1.0
-    
-    # Star shape: points alternate between outer and inner
-    point_count = sections * 2
+    if config.shape_type == ShapeType.STAR:
+        angle = (i / point_count) * (2.0 * pi)
+        is_inner = (i % 2) == 1
+        radius_factor = config.star_inner_ratio if is_inner else 1.0
+        return angle, radius_factor
     angle = (i / point_count) * (2.0 * pi)
-    is_inner = (i % 2) == 1
-    radius_factor = config.star_inner_ratio if is_inner else 1.0
-    return angle, radius_factor
+    return angle, _shape_radius_factor(angle, config)
 
 
 def _outer_base_radius(z: float, config: GeneratorConfig) -> float:
@@ -350,11 +430,105 @@ def _build_wall_faces(ring_count: int, section_count: int, offset: int, reverse:
     return faces
 
 
+def _signed_area_2d(points: list[tuple[float, float]]) -> float:
+    area = 0.0
+    for i, (x0, y0) in enumerate(points):
+        x1, y1 = points[(i + 1) % len(points)]
+        area += (x0 * y1) - (x1 * y0)
+    return area * 0.5
+
+
+def _point_in_triangle(
+    point: tuple[float, float],
+    a: tuple[float, float],
+    b: tuple[float, float],
+    c: tuple[float, float],
+) -> bool:
+    px, py = point
+    ax, ay = a
+    bx, by = b
+    cx, cy = c
+
+    v0x = cx - ax
+    v0y = cy - ay
+    v1x = bx - ax
+    v1y = by - ay
+    v2x = px - ax
+    v2y = py - ay
+
+    dot00 = (v0x * v0x) + (v0y * v0y)
+    dot01 = (v0x * v1x) + (v0y * v1y)
+    dot02 = (v0x * v2x) + (v0y * v2y)
+    dot11 = (v1x * v1x) + (v1y * v1y)
+    dot12 = (v1x * v2x) + (v1y * v2y)
+
+    denom = (dot00 * dot11) - (dot01 * dot01)
+    if abs(denom) <= 1e-9:
+        return False
+
+    inv = 1.0 / denom
+    u = ((dot11 * dot02) - (dot01 * dot12)) * inv
+    v = ((dot00 * dot12) - (dot01 * dot02)) * inv
+    eps = 1e-9
+    return (u >= -eps) and (v >= -eps) and ((u + v) <= 1.0 + eps)
+
+
+def _triangulate_simple_polygon(points: list[tuple[float, float]]) -> list[tuple[int, int, int]]:
+    if len(points) < 3:
+        return []
+
+    ccw = _signed_area_2d(points) > 0
+    remaining = list(range(len(points)))
+    triangles: list[tuple[int, int, int]] = []
+    guard = 0
+
+    while len(remaining) > 3 and guard < len(points) * len(points):
+        ear_found = False
+        for i, current in enumerate(remaining):
+            prev = remaining[i - 1]
+            nxt = remaining[(i + 1) % len(remaining)]
+            ax, ay = points[prev]
+            bx, by = points[current]
+            cx, cy = points[nxt]
+            cross = ((bx - ax) * (cy - ay)) - ((by - ay) * (cx - ax))
+            if ccw:
+                if cross <= 1e-9:
+                    continue
+            elif cross >= -1e-9:
+                continue
+
+            triangle = (points[prev], points[current], points[nxt])
+            contains_point = False
+            for candidate in remaining:
+                if candidate in (prev, current, nxt):
+                    continue
+                if _point_in_triangle(points[candidate], *triangle):
+                    contains_point = True
+                    break
+            if contains_point:
+                continue
+
+            triangles.append((prev, current, nxt))
+            del remaining[i]
+            ear_found = True
+            break
+
+        if not ear_found:
+            break
+        guard += 1
+
+    if len(remaining) == 3:
+        triangles.append((remaining[0], remaining[1], remaining[2]))
+
+    if not triangles:
+        raise RuntimeError("Failed to triangulate bottom cap for the generated shape.")
+    return triangles
+
+
 def _build_planter_mesh(config: GeneratorConfig) -> trimesh.Trimesh:
     z_base = _effective_base_z(config)
     z_top = config.height_mm
     z_lip = max(z_base, z_top - config.wall_thickness_mm)
-    sections = max(3, int(config.sections))
     height_steps = max(8, int(config.height_steps))
     z_levels = sorted(set([
         0.0,
@@ -364,11 +538,7 @@ def _build_planter_mesh(config: GeneratorConfig) -> trimesh.Trimesh:
         *[(i / (height_steps - 1)) * z_top for i in range(height_steps)],
     ]))
 
-    # Determine actual vertex count per ring (polygon or star)
-    if config.shape_type == ShapeType.STAR:
-        point_count = sections * 2
-    else:
-        point_count = sections
+    point_count = _shape_point_count(config)
 
     # Equivalent to linear_extrude(height=..., twist=...) around Z axis.
     outer_rings = []
@@ -378,7 +548,7 @@ def _build_planter_mesh(config: GeneratorConfig) -> trimesh.Trimesh:
         z_twist = _z_twist_angle(z, z_top, config)
         ring = []
         for i in range(point_count):
-            theta, radius_factor = _get_point_angle_and_radius_factor(i, sections, config)
+            theta, radius_factor = _get_point_angle_and_radius_factor(i, point_count, config)
             offset = _texture_offset(z, theta, config)
             ring_radius = max(0.05, (radius_base + offset) * radius_factor)
             theta_rotated = theta + rotation_angle + z_twist
@@ -398,7 +568,7 @@ def _build_planter_mesh(config: GeneratorConfig) -> trimesh.Trimesh:
         z_twist = _z_twist_angle(z, z_top, config)
         ring = []
         for i in range(point_count):
-            theta, radius_factor = _get_point_angle_and_radius_factor(i, sections, config)
+            theta, radius_factor = _get_point_angle_and_radius_factor(i, point_count, config)
             inner_radius = radius * radius_factor
             ring.append((
                 inner_radius * cos(theta + rotation_angle + z_twist),
@@ -413,34 +583,43 @@ def _build_planter_mesh(config: GeneratorConfig) -> trimesh.Trimesh:
     inner_offset = len(vertices)
     for ring in inner_rings:
         vertices.extend(ring)
-    center_bottom_index = len(vertices)
-    if config.include_bottom:
-        vertices.append((0.0, 0.0, 0.0))
 
     faces: list[list[int]] = []
     faces.extend(_build_wall_faces(len(outer_rings), point_count, 0, reverse=False))
     faces.extend(_build_wall_faces(len(inner_rings), point_count, inner_offset, reverse=True))
 
-    if config.include_bottom:
-        for j in range(point_count):
-            a = 0 + j
-            b = 0 + ((j + 1) % point_count)
-            faces.append([center_bottom_index, b, a])
+    outer_top_index = z_levels.index(z_top)
+    outer_top_start = outer_top_index * point_count
+    inner_top_start = inner_offset + ((len(inner_rings) - 1) * point_count)
+    for j in range(point_count):
+        a = outer_top_start + j
+        b = outer_top_start + ((j + 1) % point_count)
+        c = inner_top_start + ((j + 1) % point_count)
+        d = inner_top_start + j
+        faces.append([a, c, b])
+        faces.append([a, d, c])
 
-        outer_base_index = z_levels.index(z_base)
-        outer_base_start = outer_base_index * point_count
+    if config.include_bottom:
+        bottom_outline = [(x, y) for x, y, _z in outer_rings[0]]
+        bottom_triangles = _triangulate_simple_polygon(bottom_outline)
+        for a, b, c in bottom_triangles:
+            faces.append([c, b, a])
+
         inner_base_start = inner_offset
-        for j in range(point_count):
-            a = outer_base_start + j
-            b = outer_base_start + ((j + 1) % point_count)
-            c = inner_base_start + ((j + 1) % point_count)
-            d = inner_base_start + j
-            faces.append([a, b, c])
-            faces.append([a, c, d])
+        inner_outline = [(x, y) for x, y, _z in inner_rings[0]]
+        inner_triangles = _triangulate_simple_polygon(inner_outline)
+        for a, b, c in inner_triangles:
+            faces.append([
+                inner_base_start + a,
+                inner_base_start + b,
+                inner_base_start + c,
+            ])
 
     mesh = trimesh.Trimesh(vertices=vertices, faces=faces, process=False)
+    mesh.process(validate=True)
+    trimesh.repair.fix_normals(mesh)
     if config.include_bottom and not mesh.is_watertight:
-        mesh = mesh.convex_hull
+        trimesh.repair.fill_holes(mesh)
     if config.include_bottom and not mesh.is_watertight:
         raise RuntimeError("Generated mesh is not watertight.")
     return mesh
@@ -449,6 +628,8 @@ def _build_planter_mesh(config: GeneratorConfig) -> trimesh.Trimesh:
 def build_planter_sleeve(config: GeneratorConfig) -> trimesh.Trimesh:
     config.validate()
     if (
+        config.shape_type == ShapeType.POLYGON
+        and
         config.texture_type == TextureType.NONE
         and config.include_bottom
         and config.middle_inbound_turns == 0
