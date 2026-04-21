@@ -47,32 +47,32 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--taper",
         type=float,
-        default=1.5,
-        help="Wall taper in degrees, positive means wider at top (default: 1.5).",
+        default=1.9,
+        help="Wall taper in degrees, positive means wider at top (default: 1.9).",
     )
     parser.add_argument(
         "--rim-lip",
         type=float,
-        default=1.2,
-        help="Extra outer lip around top rim in mm (default: 1.2).",
+        default=1.4,
+        help="Extra outer lip around top rim in mm (default: 1.4).",
     )
     parser.add_argument(
         "--texture-type",
         choices=["none", "rings", "micro_rings", "spiral", "braid", "grid", "hex", "hammered"],
-        default="none",
-        help="Surface texture pattern (default: none).",
+        default="braid",
+        help="Surface texture pattern (default: braid).",
     )
     parser.add_argument(
         "--texture-strength",
         type=float,
-        default=0.6,
-        help="Texture displacement strength in mm (default: 0.6).",
+        default=0.9,
+        help="Texture displacement strength in mm (default: 0.9).",
     )
     parser.add_argument(
         "--texture-scale",
         type=float,
-        default=2.0,
-        help="Legacy uniform texture scale applied to U and V (default: 2.0).",
+        default=2.4,
+        help="Legacy uniform texture scale applied to U and V (default: 2.4).",
     )
     parser.add_argument(
         "--texture-scale-u",
@@ -99,20 +99,20 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--texture-rotation",
         type=float,
-        default=0.0,
-        help="Texture rotation in degrees (default: 0).",
+        default=28.0,
+        help="Texture rotation in degrees (default: 28).",
     )
     parser.add_argument(
         "--middle-inbound",
         type=float,
-        default=0.0,
-        help="Total number of middle-inbound turns along model height in range 0..50 (default: 0).",
+        default=1.8,
+        help="Total number of middle-inbound turns along model height in range 0..50 (default: 1.8).",
     )
     parser.add_argument(
         "--z-rotation",
         type=float,
-        default=0.0,
-        help="Twist around vertical Z axis in degrees at top height (bottom is always 0, default: 0).",
+        default=220.0,
+        help="Twist around vertical Z axis in degrees at top height (bottom is always 0, default: 220).",
     )
     parser.add_argument(
         "--twist-turns",
@@ -136,14 +136,14 @@ def _build_parser() -> argparse.ArgumentParser:
             "teardrop",
             "lens",
         ],
-        default="polygon",
-        help="Cross-section shape (default: polygon).",
+        default="flower",
+        help="Cross-section shape (default: flower).",
     )
     parser.add_argument(
         "--star-inner-ratio",
         type=float,
-        default=0.5,
-        help="Inner star point radius ratio (0.1..0.9) for star shapes (default: 0.5).",
+        default=0.45,
+        help="Inner star point radius ratio (0.1..0.9) for star shapes (default: 0.45).",
     )
     parser.add_argument(
         "--shape-aspect-ratio",
@@ -154,26 +154,26 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--shape-roundness",
         type=float,
-        default=0.5,
-        help="Corner softness or tooth softness in range 0..1 (default: 0.5).",
+        default=0.35,
+        help="Corner softness or tooth softness in range 0..1 (default: 0.35).",
     )
     parser.add_argument(
         "--shape-wave-depth",
         type=float,
-        default=0.35,
-        help="Depth for clover/scallop/flower/teardrop/lens modulation in range 0..0.95 (default: 0.35).",
+        default=0.6,
+        help="Depth for clover/scallop/flower/teardrop/lens modulation in range 0..0.95 (default: 0.6).",
     )
     parser.add_argument(
         "--shape-wave-count",
         type=int,
-        default=6,
-        help="Wave or petal count for supported shapes in range 2..24 (default: 6).",
+        default=8,
+        help="Wave or petal count for supported shapes in range 2..24 (default: 8).",
     )
     parser.add_argument(
         "--sections",
         type=int,
-        default=6,
-        help="Primary divisions or side count for shape generation (default: 6).",
+        default=7,
+        help="Primary divisions or side count for shape generation (default: 7).",
     )
     parser.add_argument(
         "--format",

@@ -54,16 +54,16 @@ class GeneratorConfig:
     wall_thickness_mm: float = 3.0
     base_thickness_mm: float = 4.0
     include_bottom: bool = True
-    taper_deg: float = 1.5
-    rim_lip_mm: float = 1.2
-    texture_type: TextureType = TextureType.NONE
-    texture_strength_mm: float = 0.6
-    texture_scale: float = 2.0
+    taper_deg: float = 1.9
+    rim_lip_mm: float = 1.4
+    texture_type: TextureType = TextureType.BRAID
+    texture_strength_mm: float = 0.9
+    texture_scale: float = 2.4
     texture_scale_u: float | None = None
     texture_scale_v: float | None = None
     texture_offset_u: float = 0.0
     texture_offset_v: float = 0.0
-    texture_rotation_deg: float = 0.0
+    texture_rotation_deg: float = 28.0
     texture_displacement_mode: DisplacementMode = DisplacementMode.SYMMETRIC
     texture_gray_black: float = 0.0
     texture_gray_white: float = 1.0
@@ -72,16 +72,16 @@ class GeneratorConfig:
     texture_image_data: tuple[float, ...] | None = None
     texture_image_width: int = 0
     texture_image_height: int = 0
-    middle_inbound_turns: float = 0.0
+    middle_inbound_turns: float = 1.8
     middle_inbound_z_mm: float | None = None
-    z_rotation_deg: float = 0.0
-    shape_type: ShapeType = ShapeType.POLYGON
-    star_inner_ratio: float = 0.5
+    z_rotation_deg: float = 220.0
+    shape_type: ShapeType = ShapeType.FLOWER
+    star_inner_ratio: float = 0.45
     shape_aspect_ratio: float = 1.0
-    shape_roundness: float = 0.5
-    shape_wave_depth: float = 0.35
-    shape_wave_count: int = 6
-    sections: int = 6
+    shape_roundness: float = 0.35
+    shape_wave_depth: float = 0.6
+    shape_wave_count: int = 8
+    sections: int = 7
     height_steps: int = 64
 
     def validate(self) -> None:
