@@ -105,14 +105,14 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--middle-inbound",
         type=float,
-        default=1.8,
-        help="Total number of middle-inbound turns along model height in range 0..50 (default: 1.8).",
+        default=0.0,
+        help="Total number of middle-inbound turns along model height in range 0..50 (default: 0).",
     )
     parser.add_argument(
         "--z-rotation",
         type=float,
-        default=220.0,
-        help="Twist around vertical Z axis in degrees at top height (bottom is always 0, default: 220).",
+        default=26.0,
+        help="Twist around vertical Z axis in degrees at top height (bottom is always 0, default: 26).",
     )
     parser.add_argument(
         "--twist-turns",
@@ -136,8 +136,8 @@ def _build_parser() -> argparse.ArgumentParser:
             "teardrop",
             "lens",
         ],
-        default="flower",
-        help="Cross-section shape (default: flower).",
+        default="squircle",
+        help="Cross-section shape (default: squircle).",
     )
     parser.add_argument(
         "--star-inner-ratio",

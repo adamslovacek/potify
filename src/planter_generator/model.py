@@ -72,10 +72,10 @@ class GeneratorConfig:
     texture_image_data: tuple[float, ...] | None = None
     texture_image_width: int = 0
     texture_image_height: int = 0
-    middle_inbound_turns: float = 1.8
-    middle_inbound_z_mm: float | None = None
-    z_rotation_deg: float = 220.0
-    shape_type: ShapeType = ShapeType.FLOWER
+    middle_inbound_turns: float = 0.0
+    middle_inbound_z_mm: float | None = 50.0
+    z_rotation_deg: float = 26.0
+    shape_type: ShapeType = ShapeType.SQUIRCLE
     star_inner_ratio: float = 0.45
     shape_aspect_ratio: float = 1.0
     shape_roundness: float = 0.35
