@@ -319,9 +319,19 @@
       color: var(--muted);
     }
     @media (max-width: 980px) {
+      .card {
+        height: auto;
+        min-height: 100vh;
+        overflow: visible;
+      }
+      .content { height: auto; }
+      .layout { height: auto; }
       .layout { grid-template-columns: 1fr; }
-      .menu-panel { max-height: 46vh; }
-      .preview-wrap { min-height: 60vh; }
+      .menu-panel {
+        max-height: none;
+        overflow-y: visible;
+      }
+      .preview-wrap { min-height: 42vh; }
     }
     @media (max-width: 780px) {
       header { flex-direction: column; align-items: flex-start; gap: 10px; }
