@@ -844,6 +844,35 @@
     let axisLabelSprites = [];
     let hasAutoFramedModel = false;
 
+    function frameCameraToModel(box, force = false) {
+      if (!camera || !controls || !box || box.isEmpty()) return;
+
+      const sphere = box.getBoundingSphere(new THREE.Sphere());
+      const center = sphere.center;
+      const radius = Math.max(1e-3, sphere.radius);
+
+      const verticalOffset = Math.max(0.5, box.getSize(new THREE.Vector3()).z * 0.14);
+      const target = new THREE.Vector3(center.x, center.y, center.z + verticalOffset);
+
+      const fovRad = THREE.MathUtils.degToRad(camera.fov * 0.5);
+      const fitDistance = radius / Math.max(0.08, Math.sin(fovRad));
+      const distance = Math.max(1.2, fitDistance * 1.25);
+
+      // Consistent 3/4 top-front angle that reads planter silhouettes clearly.
+      const viewDir = new THREE.Vector3(1.1, -1.55, 0.95).normalize();
+
+      controls.minDistance = Math.max(0.35, distance * 0.22);
+      controls.maxDistance = Math.max(14, distance * 7.0);
+
+      if (force || !hasAutoFramedModel) {
+        camera.position.copy(target).addScaledVector(viewDir, distance);
+        controls.target.copy(target);
+        hasAutoFramedModel = true;
+      }
+
+      controls.update();
+    }
+
     function numberValue(name) {
       try {
         const field = inputs[name];
@@ -1683,8 +1712,8 @@
       const height = canvas.clientHeight;
       camera = new THREE.PerspectiveCamera(32, width / height, 0.1, 10000);
       camera.up.set(0, 0, 1);
-      camera.position.set(0.7, -1.9, 0.6);
-      camera.lookAt(0, 0, 0.4);
+      camera.position.set(1.35, -2.2, 1.25);
+      camera.lookAt(0, 0, 0.6);
 
       controls = new OrbitControls(camera, canvas);
       controls.enableDamping = true;
@@ -1693,9 +1722,11 @@
       controls.enableZoom = true;
       controls.zoomSpeed = 0.85;
       controls.rotateSpeed = 0.95;
-      controls.minDistance = 0.8;
-      controls.maxDistance = 6.0;
-      controls.target.set(0, 0, 0.4);
+      controls.minDistance = 0.5;
+      controls.maxDistance = 14.0;
+      controls.minPolarAngle = 0.25;
+      controls.maxPolarAngle = Math.PI * 0.495;
+      controls.target.set(0, 0, 0.6);
       controls.update();
     }
 
@@ -1732,19 +1763,7 @@
         modelMesh = new THREE.Mesh(geometry, material);
         scene.add(modelMesh);
         const box = new THREE.Box3().setFromObject(modelMesh);
-        const radius = box.getBoundingSphere(new THREE.Sphere()).radius;
-        const targetZ = radius * 0.4;
-        const distance = radius * 2.2;
-        if (controls) {
-          controls.minDistance = Math.max(0.4, distance * 0.35);
-          controls.maxDistance = Math.max(distance * 6.0, 2500);
-          if (!hasAutoFramedModel) {
-            camera.position.set(radius * 0.55, -distance, radius * 0.7);
-            controls.target.set(0, 0, targetZ);
-            hasAutoFramedModel = true;
-          }
-          controls.update();
-        }
+        frameCameraToModel(box);
         renderScene();
       } catch (error) {
         console.error("setModel error:", error);
