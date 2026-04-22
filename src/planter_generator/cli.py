@@ -45,6 +45,12 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Generate sleeve without bottom (open-bottom variant).",
     )
     parser.add_argument(
+        "--drain-hole-diameter",
+        type=float,
+        default=0.0,
+        help="Diameter of drainage hole in bottom in mm (default: 0 = no hole).",
+    )
+    parser.add_argument(
         "--taper",
         type=float,
         default=1.9,
@@ -206,6 +212,7 @@ def main() -> int:
         include_bottom=not args.no_bottom,
         taper_deg=args.taper,
         rim_lip_mm=args.rim_lip,
+        drain_hole_diameter_mm=args.drain_hole_diameter,
         texture_type=TextureType(args.texture_type),
         texture_strength_mm=args.texture_strength,
         texture_scale=args.texture_scale,

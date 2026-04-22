@@ -83,8 +83,16 @@ class GeneratorConfig:
     shape_wave_count: int = 8
     sections: int = 7
     height_steps: int = 64
+    drain_hole_diameter_mm: float = 0.0
 
     def validate(self) -> None:
+        if self.drain_hole_diameter_mm < 0:
+            raise ValueError("drain_hole_diameter_mm must be >= 0")
+        if self.drain_hole_diameter_mm > 0 and self.include_bottom:
+            if self.drain_hole_diameter_mm >= self.inner_diameter_mm:
+                raise ValueError(
+                    "drain_hole_diameter_mm must be smaller than inner_diameter_mm"
+                )
         if self.inner_diameter_mm <= 0:
             raise ValueError("inner_diameter_mm must be > 0")
         if self.height_mm <= 0:
@@ -524,6 +532,42 @@ def _triangulate_simple_polygon(points: list[tuple[float, float]]) -> list[tuple
         raise RuntimeError("Failed to triangulate bottom cap for the generated shape.")
     return triangles
 
+def _build_annulus_faces(
+    n_outer: int,
+    outer_start: int,
+    n_inner: int,
+    inner_start: int,
+    reverse: bool = False,
+) -> list[list[int]]:
+    """Triangulate annular region between two concentric rings.
+
+    Both rings have vertices at evenly-spaced angles going CCW from above.
+    Returns faces wound CCW from above (normal up) unless *reverse* is True.
+    """
+    faces: list[list[int]] = []
+    oi = 0
+    ii = 0
+    o_steps = 0
+    i_steps = 0
+    while o_steps < n_outer or i_steps < n_inner:
+        o_next = (oi + 1) % n_outer
+        i_next = (ii + 1) % n_inner
+        can_outer = o_steps < n_outer
+        can_inner = i_steps < n_inner
+        if not can_inner or (can_outer and (o_steps / n_outer) <= (i_steps / n_inner)):
+            tri = [outer_start + oi, outer_start + o_next, inner_start + ii]
+            oi = o_next
+            o_steps += 1
+        else:
+            tri = [outer_start + oi, inner_start + i_next, inner_start + ii]
+            ii = i_next
+            i_steps += 1
+        if reverse:
+            faces.append([tri[2], tri[1], tri[0]])
+        else:
+            faces.append(tri)
+    return faces
+
 
 def _build_planter_mesh(config: GeneratorConfig) -> trimesh.Trimesh:
     z_base = _effective_base_z(config)
@@ -584,6 +628,32 @@ def _build_planter_mesh(config: GeneratorConfig) -> trimesh.Trimesh:
     for ring in inner_rings:
         vertices.extend(ring)
 
+    # Drain hole rings (only when bottom is present and hole diameter is set)
+    r_hole = (
+        config.drain_hole_diameter_mm / 2.0
+        if (config.drain_hole_diameter_mm > 0 and config.include_bottom)
+        else 0.0
+    )
+    hole_point_count = point_count
+
+    def _build_hole_ring(z: float) -> list[tuple[float, float, float]]:
+        rotation_angle = _middle_inbound_angle(z, z_top, config)
+        z_twist = _z_twist_angle(z, z_top, config)
+        ring: list[tuple[float, float, float]] = []
+        for i in range(hole_point_count):
+            theta = (i / hole_point_count) * (2.0 * pi)
+            theta_rotated = theta + rotation_angle + z_twist
+            ring.append((r_hole * cos(theta_rotated), r_hole * sin(theta_rotated), z))
+        return ring
+
+    hole_bottom_offset = 0
+    hole_top_offset = 0
+    if r_hole > 0:
+        hole_bottom_offset = len(vertices)
+        vertices.extend(_build_hole_ring(0.0))
+        hole_top_offset = len(vertices)
+        vertices.extend(_build_hole_ring(z_base))
+
     faces: list[list[int]] = []
     faces.extend(_build_wall_faces(len(outer_rings), point_count, 0, reverse=False))
     faces.extend(_build_wall_faces(len(inner_rings), point_count, inner_offset, reverse=True))
@@ -600,20 +670,34 @@ def _build_planter_mesh(config: GeneratorConfig) -> trimesh.Trimesh:
         faces.append([a, d, c])
 
     if config.include_bottom:
-        bottom_outline = [(x, y) for x, y, _z in outer_rings[0]]
-        bottom_triangles = _triangulate_simple_polygon(bottom_outline)
-        for a, b, c in bottom_triangles:
-            faces.append([c, b, a])
+        if r_hole > 0:
+            # Annular outer bottom face at z=0 (normal pointing down)
+            faces.extend(
+                _build_annulus_faces(point_count, 0, hole_point_count, hole_bottom_offset, reverse=True)
+            )
+            # Annular inner floor at z=z_base (normal pointing up)
+            faces.extend(
+                _build_annulus_faces(
+                    point_count, inner_offset, hole_point_count, hole_top_offset, reverse=False
+                )
+            )
+            # Hole cylinder wall (inward normals)
+            faces.extend(_build_wall_faces(2, hole_point_count, hole_bottom_offset, reverse=True))
+        else:
+            bottom_outline = [(x, y) for x, y, _z in outer_rings[0]]
+            bottom_triangles = _triangulate_simple_polygon(bottom_outline)
+            for a, b, c in bottom_triangles:
+                faces.append([c, b, a])
 
-        inner_base_start = inner_offset
-        inner_outline = [(x, y) for x, y, _z in inner_rings[0]]
-        inner_triangles = _triangulate_simple_polygon(inner_outline)
-        for a, b, c in inner_triangles:
-            faces.append([
-                inner_base_start + a,
-                inner_base_start + b,
-                inner_base_start + c,
-            ])
+            inner_base_start = inner_offset
+            inner_outline = [(x, y) for x, y, _z in inner_rings[0]]
+            inner_triangles = _triangulate_simple_polygon(inner_outline)
+            for a, b, c in inner_triangles:
+                faces.append([
+                    inner_base_start + a,
+                    inner_base_start + b,
+                    inner_base_start + c,
+                ])
 
     mesh = trimesh.Trimesh(vertices=vertices, faces=faces, process=False)
     mesh.process(validate=True)
@@ -662,19 +746,33 @@ def build_planter_sleeve(config: GeneratorConfig) -> trimesh.Trimesh:
             raise ValueError(
                 "Invalid dimensions. Radii became non-positive; reduce negative taper or increase size."
             )
-
-        profile = [
-            (0.0, 0.0),
-            (r_o0, 0.0),
-            (r_ob, z_base),
-            (r_ol, z_lip),
-            (r_ll, z_lip),
-            (r_lt, z_top),
-            (r_it, z_top),
-            (r_inner_at_base, z_base),
-            (0.0, z_base),
-            (0.0, 0.0),
-        ]
+        if config.drain_hole_diameter_mm > 0:
+            r_hole_fast = config.drain_hole_diameter_mm / 2.0
+            profile = [
+                (r_hole_fast, 0.0),
+                (r_o0, 0.0),
+                (r_ob, z_base),
+                (r_ol, z_lip),
+                (r_ll, z_lip),
+                (r_lt, z_top),
+                (r_it, z_top),
+                (r_inner_at_base, z_base),
+                (r_hole_fast, z_base),
+                (r_hole_fast, 0.0),
+            ]
+        else:
+            profile = [
+                (0.0, 0.0),
+                (r_o0, 0.0),
+                (r_ob, z_base),
+                (r_ol, z_lip),
+                (r_ll, z_lip),
+                (r_lt, z_top),
+                (r_it, z_top),
+                (r_inner_at_base, z_base),
+                (0.0, z_base),
+                (0.0, 0.0),
+            ]
         mesh = trimesh.creation.revolve(profile, sections=config.sections)
         if not mesh.is_watertight:
             raise RuntimeError("Generated mesh is not watertight.")

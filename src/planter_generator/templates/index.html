@@ -173,6 +173,32 @@
       min-height: 36px;
       box-shadow: none;
     }
+    .language-control {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: #eef2f7;
+      border: 1px solid #d5dde8;
+      border-radius: 14px;
+      padding: 6px 8px;
+    }
+    .language-control label {
+      margin: 0;
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: #334155;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .language-control select {
+      min-width: 112px;
+      height: 36px;
+      border-radius: 10px;
+      padding: 6px 10px;
+      font-size: 0.85rem;
+      border: 1px solid #c2cfdf;
+      background: #ffffff;
+    }
     .header-actions button {
       padding: 8px 12px;
       border-radius: 13px;
@@ -348,13 +374,20 @@
   <main class="card">
     <header>
       <div class="header-copy">
-        <h1>Planter Sleeve Generator</h1>
-        <p>Browser UI for generating 3D-printable planter sleeves in STL and 3MF.</p>
+        <h1 data-i18n="title">Planter Sleeve Generator</h1>
+        <p data-i18n="subtitle">Browser UI for generating 3D-printable planter sleeves in STL and 3MF.</p>
       </div>
       <div class="header-actions">
+        <div class="language-control">
+          <label for="language-select" data-i18n="languageLabel">Language</label>
+          <select id="language-select" aria-label="Language">
+            <option value="en">English</option>
+            <option value="cs">Čeština</option>
+          </select>
+        </div>
         <div class="preset-control">
           <select id="preset-select" aria-label="Preset models">
-            <option value="">Preset models...</option>
+            <option value="" data-i18n="presetPlaceholder">Preset models...</option>
             <optgroup label="Minimal Forms">
               <option value="mono_column">Mono Column</option>
               <option value="calm_taper">Calm Taper</option>
@@ -384,12 +417,12 @@
               <option value="monolith_x">Monolith X</option>
             </optgroup>
           </select>
-          <button type="button" id="apply-preset-btn" class="button-secondary">Apply preset</button>
+          <button type="button" id="apply-preset-btn" class="button-secondary" data-i18n="applyPreset">Apply preset</button>
         </div>
-        <button type="submit" form="generator-form" formaction="/generate" formmethod="post" name="format" value="stl">Export STL</button>
-        <button type="submit" form="generator-form" formaction="/generate" formmethod="post" name="format" value="3mf">Export 3MF</button>
-        <button type="button" id="load-config-btn" class="button-secondary">Load JSON</button>
-        <button type="submit" form="generator-form" formaction="/save-config" formmethod="post" class="button-secondary">Save JSON</button>
+        <button type="submit" id="export-stl-btn" form="generator-form" formaction="/generate" formmethod="post" name="format" value="stl" data-i18n="exportStl">Export STL</button>
+        <button type="submit" id="export-3mf-btn" form="generator-form" formaction="/generate" formmethod="post" name="format" value="3mf" data-i18n="export3mf">Export 3MF</button>
+        <button type="button" id="load-config-btn" class="button-secondary" data-i18n="loadJson">Load</button>
+        <button type="submit" id="save-config-btn" form="generator-form" formaction="/save-config" formmethod="post" class="button-secondary" data-i18n="saveJson">Save</button>
         <input id="load-config-input" type="file" accept="application/json,.json" style="display:none">
       </div>
     </header>
@@ -410,46 +443,51 @@
         <form id="generator-form" method="post" action="/generate" class="panel menu-panel" enctype="multipart/form-data">
           <div class="grid">
             <details class="menu-group" open>
-              <summary>Geometry basic</summary>
+              <summary data-i18n="menuDimensions">Dimensions & Bottom</summary>
               <div class="menu-group-body">
                 <label>
-                  Pot diameter (mm)
+                  <span data-i18n="potDiameter">Pot diameter (mm)</span>
                   <input name="pot_diameter" type="number" step="0.1" min="1" value="{{ values.pot_diameter }}" required>
                 </label>
                 <label>
-                  Clearance (mm)
+                  <span data-i18n="clearance">Clearance (mm)</span>
                   <input name="clearance" type="number" step="0.1" value="{{ values.clearance }}" required>
                 </label>
                 <label>
-                  Height (mm)
+                  <span data-i18n="height">Height (mm)</span>
                   <input name="height" type="number" step="0.1" min="1" value="{{ values.height }}" required>
                 </label>
                 <label>
-                  Wall thickness (mm)
+                  <span data-i18n="wallThickness">Wall thickness (mm)</span>
                   <input name="wall" type="number" step="0.1" min="0.2" value="{{ values.wall }}" required>
                 </label>
                 <label>
-                  Base thickness (mm)
+                  <span data-i18n="baseThickness">Base thickness (mm)</span>
                   <input name="base" type="number" step="0.1" min="0.2" value="{{ values.base }}" required>
                 </label>
                 <label class="toggle-label">
                   <input name="include_bottom" type="checkbox" {% if values.include_bottom %}checked{% endif %}>
-                  Include bottom
+                  <span data-i18n="includeBottom">Include bottom</span>
                 </label>
-                <div class="toggle-caption">Enabled by default. Disable for an open-bottom sleeve.</div>
+                <div class="toggle-caption" data-i18n="includeBottomHint">Enabled by default. Disable for an open-bottom sleeve.</div>
                 <label>
-                  Taper (deg)
+                  <span data-i18n="drainHoleDiameter">Drain hole diameter (mm)</span>
+                  <input name="drain_hole_diameter" type="number" step="0.5" min="0" value="{{ values.drain_hole_diameter | default('0.0') }}">
+                </label>
+                <div class="toggle-caption" data-i18n="drainHoleHint">Set > 0 to add a central drainage hole. Requires Include bottom.</div>
+                <label>
+                  <span data-i18n="taper">Taper (deg)</span>
                   <input name="taper" type="number" step="0.1" value="{{ values.taper }}" required>
                 </label>
                 <label>
-                  Rim lip (mm)
+                  <span data-i18n="rimLip">Rim lip (mm)</span>
                   <input name="rim_lip" type="number" step="0.1" min="0" value="{{ values.rim_lip }}" required>
                 </label>
               </div>
             </details>
 
             <details class="menu-group">
-              <summary>Geometry advanced</summary>
+              <summary data-i18n="menuShape">Shape & Twist</summary>
               <div class="menu-group-body">
                 <label>
                   Shape type
@@ -509,7 +547,7 @@
             </details>
 
             <details class="menu-group">
-              <summary>Texture controls</summary>
+              <summary data-i18n="menuTexture">Texture & Displacement</summary>
               <div class="menu-group-body">
                 <label>
                   Texture type
@@ -591,7 +629,7 @@
             </details>
 
             <details class="menu-group">
-              <summary>Material style</summary>
+              <summary data-i18n="menuMaterial">Material Preview Style</summary>
               <div class="menu-group-body">
                 <label>
                   Material style
@@ -631,7 +669,7 @@
         </div>
 
           <div class="actions">
-            <span class="muted">Use top-right buttons next to the title to export STL/3MF or save JSON.</span>
+            <span class="muted" data-i18n="footerHint">Use top-right buttons next to the title to export STL/3MF or save JSON.</span>
           </div>
         </form>
       </div>
@@ -657,6 +695,7 @@
     const textureImageInput = document.getElementById("texture-image");
     const presetSelect = document.getElementById("preset-select");
     const applyPresetButton = document.getElementById("apply-preset-btn");
+    const languageSelect = document.getElementById("language-select");
     const shapeControls = Array.from(document.querySelectorAll(".shape-control[data-shapes]"));
 
     const imageDisplacementState = {
@@ -743,6 +782,84 @@
       monolith_x: { pot_diameter: 160, clearance: 2.0, height: 200, wall: 3.8, base: 5.0, include_bottom: true, taper: 0.5, rim_lip: 1.4, shape_type: "polygon", star_inner_ratio: 0.5, middle_inbound_turns: 1.1, middle_inbound_z: 100, z_rotation: 120, sections: 4, texture_type: "hammered", texture_strength: 1.1, texture_scale: 1.9, texture_rotation: 20, material_type: "matte-black" },
     };
 
+    const I18N = {
+      en: {
+        title: "Planter Sleeve Generator",
+        subtitle: "Browser UI for generating 3D-printable planter sleeves in STL and 3MF.",
+        languageLabel: "Language",
+        presetPlaceholder: "Preset models...",
+        applyPreset: "Apply preset",
+        exportStl: "Export STL",
+        export3mf: "Export 3MF",
+        loadJson: "Load",
+        saveJson: "Save",
+        menuDimensions: "Dimensions & Bottom",
+        menuShape: "Shape & Twist",
+        menuTexture: "Texture & Displacement",
+        menuMaterial: "Material Preview Style",
+        potDiameter: "Pot diameter (mm)",
+        clearance: "Clearance (mm)",
+        height: "Height (mm)",
+        wallThickness: "Wall thickness (mm)",
+        baseThickness: "Base thickness (mm)",
+        includeBottom: "Include bottom",
+        includeBottomHint: "Enabled by default. Disable for an open-bottom sleeve.",
+        drainHoleDiameter: "Drain hole diameter (mm)",
+        drainHoleHint: "Set > 0 to add a central drainage hole. Requires Include bottom.",
+        taper: "Taper (deg)",
+        rimLip: "Rim lip (mm)",
+        footerHint: "Use top-right buttons next to the title to export STL/3MF or save JSON.",
+      },
+      cs: {
+        title: "Generátor obalu květináče",
+        subtitle: "Webové rozhraní pro generování 3D tisknutelných obalů květináčů ve formátech STL a 3MF.",
+        languageLabel: "Jazyk",
+        presetPlaceholder: "Předvolené modely...",
+        applyPreset: "Použít preset",
+        exportStl: "Export STL",
+        export3mf: "Export 3MF",
+        loadJson: "Načíst",
+        saveJson: "Uložit",
+        menuDimensions: "Rozměry a dno",
+        menuShape: "Tvar a zkroucení",
+        menuTexture: "Textura a displacement",
+        menuMaterial: "Styl materiálu náhledu",
+        potDiameter: "Průměr květináče (mm)",
+        clearance: "Vůle (mm)",
+        height: "Výška (mm)",
+        wallThickness: "Tloušťka stěny (mm)",
+        baseThickness: "Tloušťka dna (mm)",
+        includeBottom: "Včetně dna",
+        includeBottomHint: "Zapnuto ve výchozím stavu. Vypněte pro otevřený spodek.",
+        drainHoleDiameter: "Průměr odtokového otvoru (mm)",
+        drainHoleHint: "Nastavte > 0 pro centrální odtokový otvor. Vyžaduje zapnuté dno.",
+        taper: "Zužování (stupně)",
+        rimLip: "Horní lem (mm)",
+        footerHint: "Pomocí tlačítek vpravo nahoře můžete exportovat STL/3MF nebo uložit JSON.",
+      },
+    };
+
+    function getLanguage() {
+      const candidate = (languageSelect?.value || localStorage.getItem("potify_lang") || "en").toLowerCase();
+      return candidate in I18N ? candidate : "en";
+    }
+
+    function applyLanguage(lang) {
+      const dict = I18N[lang] || I18N.en;
+      document.documentElement.lang = lang;
+      for (const node of document.querySelectorAll("[data-i18n]")) {
+        const key = node.getAttribute("data-i18n");
+        if (key && dict[key]) node.textContent = dict[key];
+      }
+      if (presetSelect) {
+        presetSelect.setAttribute("aria-label", lang === "cs" ? "Předvolené modely" : "Preset models");
+      }
+      if (languageSelect) {
+        languageSelect.setAttribute("aria-label", lang === "cs" ? "Jazyk" : "Language");
+      }
+      localStorage.setItem("potify_lang", lang);
+    }
+
     function clamp(value, min, max) {
       return Math.max(min, Math.min(max, value));
     }
@@ -816,7 +933,7 @@
     }
     
     const inputNames = [
-      "pot_diameter", "clearance", "height", "wall", "base", "taper", "rim_lip",
+      "pot_diameter", "clearance", "height", "wall", "base", "taper", "rim_lip", "drain_hole_diameter",
       "include_bottom", "shape_type", "star_inner_ratio", "shape_aspect_ratio", "shape_roundness", "shape_wave_depth", "shape_wave_count", "texture_type", "texture_strength", "texture_scale", "texture_scale_u", "texture_scale_v", "texture_offset_u", "texture_offset_v", "texture_rotation", "texture_displacement_mode", "texture_gray_black", "texture_gray_white", "texture_gray_midpoint", "texture_gray_invert", "middle_inbound_turns", "middle_inbound_z", "z_rotation", "material_type", "sections"
     ];
     const inputs = Object.fromEntries(inputNames.map((name) => [name, form?.querySelector(`[name='${name}']`)]));
@@ -1270,6 +1387,7 @@
       const base = numberValue("base");
       const taperDeg = numberValue("taper");
       const rimLip = numberValue("rim_lip");
+      const drainHoleDiameter = numberValue("drain_hole_diameter") || 0;
 
       const innerDiameter = pot + (2.0 * clearance);
       const taper = Math.tan((taperDeg * Math.PI) / 180.0);
@@ -1277,6 +1395,8 @@
       const zTop = height;
       const zLip = Math.max(zBase, zTop - wall);
       const rInnerAtBase = innerDiameter / 2.0;
+      const rHole = drainHoleDiameter / 2;
+      const hasDrainHole = includeBottom && rHole > 0 && rHole < rInnerAtBase;
 
       const rInner = (z) => rInnerAtBase + (taper * (z - zBase));
       const rOuter = (z) => rInner(z) + wall;
@@ -1309,6 +1429,20 @@
         ];
       }
 
+      if (hasDrainHole) {
+        return [
+          [rHole, 0.0],
+          [rO0, 0.0],
+          [rOb, zBase],
+          [rOl, zLip],
+          [rLl, zLip],
+          [rLt, zTop],
+          [rIt, zTop],
+          [rInnerAtBase, zBase],
+          [rHole, zBase],
+        ];
+      }
+
       return [
         [rO0, 0.0],
         [rOb, zBase],
@@ -1330,6 +1464,8 @@
       const height = Math.max(1e-6, numberValue("height"));
       const middleInboundZ = Math.max(0, Math.min(height, numberValue("middle_inbound_z")));
       const zRotationDeg = numberValue("z_rotation");
+      const drainHoleDiameter = numberValue("drain_hole_diameter") || 0;
+      const hasDrainHole = includeBottom && base > 0 && drainHoleDiameter > 0;
       const vertices = [];
       const uvs = [];
       const indices = [];
@@ -1345,7 +1481,9 @@
         for (let j = 0; j < pointCount; j++) {
           const { theta, radiusFactor } = pointAngleAndRadiusFactor(j, pointCount, shape);
           const offset = textureOffset(z, theta);
-          const r = Math.max(0.025, (radius + offset) * radiusFactor);
+          const useCircularHole = hasDrainHole && (i === 0 || i === (profile.length - 1));
+          const factor = useCircularHole ? 1.0 : radiusFactor;
+          const r = Math.max(0.025, (radius + offset) * factor);
           const thetaRotated = theta + rotationAtZ + zTwistAtZ;
           vertices.push(r * Math.cos(thetaRotated), r * Math.sin(thetaRotated), z);
           uvs.push(j / pointCount, z / height);
@@ -1365,26 +1503,41 @@
       }
 
       if (includeBottom && base > 0 && profile.length >= 7) {
-        const centerIndex = vertices.length / 3;
-        vertices.push(0, 0, 0);
-        uvs.push(0.5, 0.5);
+        if (hasDrainHole) {
+          // profile[0] = hole bottom (z=0), profile[last] = hole top (z=zBase)
+          // Annular bottom (ring0→ring1) and inner floor (ring[-2]→ring[-1]) are
+          // already covered by the quad strip. Only the hole cylinder wall is missing.
+          const holeBottomRing = 0;
+          const holeTopRing = profile.length - 1;
+          for (let j = 0; j < pointCount; j++) {
+            const a = holeBottomRing * pointCount + j;
+            const b = holeBottomRing * pointCount + ((j + 1) % pointCount);
+            const c = holeTopRing * pointCount + ((j + 1) % pointCount);
+            const d = holeTopRing * pointCount + j;
+            indices.push(a, d, c, a, c, b);
+          }
+        } else {
+          const centerIndex = vertices.length / 3;
+          vertices.push(0, 0, 0);
+          uvs.push(0.5, 0.5);
 
-        for (let j = 0; j < pointCount; j++) {
-          const a = j;
-          const b = (j + 1) % pointCount;
-          indices.push(centerIndex, b, a);
-        }
+          for (let j = 0; j < pointCount; j++) {
+            const a = j;
+            const b = (j + 1) % pointCount;
+            indices.push(centerIndex, b, a);
+          }
 
-        const outerBaseRing = 1;
-        const innerBaseRing = profile.length - 1;
-        const outerStart = outerBaseRing * pointCount;
-        const innerStart = innerBaseRing * pointCount;
-        for (let j = 0; j < pointCount; j++) {
-          const a = outerStart + j;
-          const b = outerStart + ((j + 1) % pointCount);
-          const c = innerStart + ((j + 1) % pointCount);
-          const d = innerStart + j;
-          indices.push(a, b, c, a, c, d);
+          const outerBaseRing = 1;
+          const innerBaseRing = profile.length - 1;
+          const outerStart = outerBaseRing * pointCount;
+          const innerStart = innerBaseRing * pointCount;
+          for (let j = 0; j < pointCount; j++) {
+            const a = outerStart + j;
+            const b = outerStart + ((j + 1) % pointCount);
+            const c = innerStart + ((j + 1) % pointCount);
+            const d = innerStart + j;
+            indices.push(a, b, c, a, c, d);
+          }
         }
       }
 
@@ -1486,9 +1639,11 @@
       ctx.fillStyle = style.base;
       ctx.fillRect(0, 0, size, size);
 
-      drawSpeckles(2200, style.noise * size, 0.01, 0.08);
-      drawMicroNoise(9500, false);
-      drawMicroNoise(6800, true);
+      // Keep albedo map subtle: color variation should be fine-grained, not large blotches.
+      const albedoSpeckleRadius = Math.max(0.35, Math.min(2.2, 0.35 + (style.noise * 14.0)));
+      drawSpeckles(4200, albedoSpeckleRadius, 0.007, 0.05);
+      drawMicroNoise(14000, false);
+      drawMicroNoise(9800, true);
 
       if (type === "brushed-metal") {
         drawFibers(120, 0.12, 1.1);
@@ -1587,6 +1742,89 @@
         drawSpeckles(600, 2.2, 0.04, 0.1, 230);
       }
 
+      if (type === "slate") {
+        for (let i = 0; i < 90; i++) {
+          const y = rand(0, size);
+          const h = rand(1, 5);
+          ctx.fillStyle = `rgba(55, 65, 80, ${rand(0.1, 0.22)})`;
+          ctx.fillRect(0, y, size, h);
+        }
+        drawSpeckles(900, 2.2, 0.02, 0.09, 190);
+      }
+
+      if (type === "concrete") {
+        for (let i = 0; i < 55; i++) {
+          ctx.strokeStyle = `rgba(72, 82, 92, ${rand(0.07, 0.15)})`;
+          ctx.lineWidth = rand(0.8, 2.8);
+          const y0 = rand(0, size);
+          ctx.beginPath();
+          ctx.moveTo(0, y0);
+          ctx.bezierCurveTo(size * 0.3, y0 + rand(-28, 28), size * 0.7, y0 + rand(-28, 28), size, y0 + rand(-18, 18));
+          ctx.stroke();
+        }
+        drawSpeckles(700, 2.5, 0.02, 0.08, 160);
+      }
+
+      if (type === "dark-stone") {
+        for (let i = 0; i < 750; i++) {
+          const x = Math.random() * size;
+          const y = Math.random() * size;
+          const r = rand(1.5, 6.0);
+          ctx.fillStyle = `rgba(18, 24, 30, ${rand(0.12, 0.28)})`;
+          ctx.beginPath();
+          ctx.arc(x, y, r, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        drawFibers(55, 0.07, 0.9);
+      }
+
+      if (type === "sandstone") {
+        for (let i = 0; i < 80; i++) {
+          const y = rand(0, size);
+          const h = rand(2, 8);
+          ctx.fillStyle = `rgba(148, 118, 70, ${rand(0.08, 0.18)})`;
+          ctx.fillRect(0, y, size, h);
+        }
+        drawSpeckles(1000, 2.2, 0.02, 0.08, 238);
+      }
+
+      if (type === "smooth-sand") {
+        for (let i = 0; i < 70; i++) {
+          const y = rand(0, size);
+          const h = rand(1, 4);
+          ctx.fillStyle = `rgba(148, 128, 98, ${rand(0.07, 0.16)})`;
+          ctx.fillRect(0, y, size, h);
+        }
+        drawSpeckles(800, 2.0, 0.02, 0.07, 230);
+      }
+
+      if (type === "charcoal") {
+        for (let i = 0; i < 55; i++) {
+          const y = rand(0, size);
+          const h = rand(1, 4);
+          ctx.fillStyle = `rgba(16, 20, 26, ${rand(0.09, 0.2)})`;
+          ctx.fillRect(0, y, size, h);
+        }
+      }
+
+      if (type === "matte-black") {
+        for (let i = 0; i < 50; i++) {
+          const y = rand(0, size);
+          const h = rand(1, 3);
+          ctx.fillStyle = `rgba(8, 10, 14, ${rand(0.1, 0.2)})`;
+          ctx.fillRect(0, y, size, h);
+        }
+      }
+
+      if (type === "micro-cement") {
+        for (let i = 0; i < 65; i++) {
+          const y = rand(0, size);
+          const h = rand(1, 5);
+          ctx.fillStyle = `rgba(85, 96, 108, ${rand(0.06, 0.14)})`;
+          ctx.fillRect(0, y, size, h);
+        }
+      }
+
       if (type === "travertine") {
         for (let i = 0; i < 95; i++) {
           const y = rand(0, size);
@@ -1611,19 +1849,165 @@
       return new THREE.CanvasTexture(canvas);
     }
 
+    function generateDetailTexture(type) {
+      const size = 1024;
+      const canvas = document.createElement("canvas");
+      canvas.width = canvas.height = size;
+      const ctx = canvas.getContext("2d");
+
+      function rand(min, max) {
+        return min + (Math.random() * (max - min));
+      }
+
+      ctx.fillStyle = "rgb(128,128,128)";
+      ctx.fillRect(0, 0, size, size);
+
+      function drawGrain(count, spread = 20, sizeMax = 2) {
+        for (let i = 0; i < count; i++) {
+          const x = Math.floor(Math.random() * size);
+          const y = Math.floor(Math.random() * size);
+          const delta = Math.floor(rand(-spread, spread));
+          const v = Math.max(0, Math.min(255, 128 + delta));
+          const a = rand(0.08, 0.24);
+          const s = Math.random() < 0.88 ? 1 : sizeMax;
+          ctx.fillStyle = `rgba(${v},${v},${v},${a})`;
+          ctx.fillRect(x, y, s, s);
+        }
+      }
+
+      function drawSoftPits(count, radiusMax = 2.2) {
+        for (let i = 0; i < count; i++) {
+          const x = Math.random() * size;
+          const y = Math.random() * size;
+          const r = rand(0.4, radiusMax);
+          const alpha = rand(0.05, 0.18);
+          ctx.fillStyle = `rgba(92,92,92,${alpha})`;
+          ctx.beginPath();
+          ctx.arc(x, y, r, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      function drawRidges(count, alphaMax, width = 1.0) {
+        for (let i = 0; i < count; i++) {
+          const y = Math.random() * size;
+          ctx.strokeStyle = `rgba(170,170,170,${Math.random() * alphaMax})`;
+          ctx.lineWidth = width;
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(size, y + rand(-4, 4));
+          ctx.stroke();
+        }
+      }
+
+      function drawBands(count, alphaMin, alphaMax) {
+        for (let i = 0; i < count; i++) {
+          const y = rand(0, size);
+          const h = rand(2, 11);
+          const v = Math.floor(rand(108, 150));
+          const a = rand(alphaMin, alphaMax);
+          ctx.fillStyle = `rgba(${v},${v},${v},${a})`;
+          ctx.fillRect(0, y, size, h);
+        }
+      }
+
+      function drawContrast(mult = 1.0) {
+        const image = ctx.getImageData(0, 0, size, size);
+        const data = image.data;
+        const factor = Math.max(0.8, mult);
+        for (let i = 0; i < data.length; i += 4) {
+          const v = Math.max(0, Math.min(255, ((data[i] - 128) * factor) + 128));
+          data[i] = v;
+          data[i + 1] = v;
+          data[i + 2] = v;
+        }
+        ctx.putImageData(image, 0, 0);
+      }
+
+      drawGrain(46000, 22, 2);
+      drawGrain(26000, 12, 1);
+
+      if (type === "brushed-metal" || type === "worn-steel") {
+        drawRidges(260, 0.24, 1.1);
+        drawBands(60, 0.05, 0.14);
+      }
+
+      if (type === "basalt" || type === "weathered-concrete") {
+        drawSoftPits(3000, 3.1);
+        drawBands(70, 0.06, 0.17);
+      }
+
+      if (type === "dark-stone") {
+        drawSoftPits(2800, 4.5);
+        drawBands(60, 0.06, 0.16);
+      }
+
+      if (type === "travertine" || type === "sandstone") {
+        drawBands(140, 0.1, 0.28);
+      }
+
+      if (type === "smooth-sand" || type === "concrete" || type === "micro-cement") {
+        drawBands(90, 0.08, 0.22);
+      }
+
+      if (type === "slate" || type === "charcoal" || type === "matte-black") {
+        drawBands(110, 0.09, 0.25);
+      }
+
+      if (type === "terrazzo") {
+        drawSoftPits(1600, 3.8);
+      }
+
+      if (type === "raku") {
+        for (let i = 0; i < 140; i++) {
+          const v = Math.floor(rand(88, 135));
+          ctx.strokeStyle = `rgba(${v},${v},${v},${rand(0.15, 0.36)})`;
+          ctx.lineWidth = rand(0.8, 1.8);
+          const x0 = rand(0, size); const y0 = rand(0, size);
+          ctx.beginPath(); ctx.moveTo(x0, y0);
+          ctx.lineTo(x0 + rand(-40, 40), y0 + rand(-40, 40));
+          ctx.stroke();
+        }
+      }
+
+      if (type === "oxidized-copper") {
+        drawBands(70, 0.07, 0.18);
+      }
+
+      if (type === "terracotta") {
+        drawRidges(80, 0.2, 1.0);
+        drawSoftPits(1000, 2.5);
+      }
+
+      if (type === "glossy-ceramic" || type === "pearl-glaze" || type === "porcelain-speckle") {
+        drawGrain(15000, 8, 1);
+      }
+
+      drawContrast(type === "glossy-ceramic" || type === "pearl-glaze" ? 1.15 : 1.38);
+
+      const texture = new THREE.CanvasTexture(canvas);
+      texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+      texture.generateMipmaps = true;
+      texture.minFilter = THREE.LinearMipmapLinearFilter;
+      texture.magFilter = THREE.LinearFilter;
+      if ("colorSpace" in texture) texture.colorSpace = THREE.NoColorSpace;
+      else texture.encoding = THREE.LinearEncoding;
+      return texture;
+    }
+
     function createMaterial() {
       const type = inputs.material_type.value;
       const presets = {
-        concrete: { color: 0xb8bcc0, roughness: 0.76, metalness: 0.05, bumpScale: 0.14 },
+        concrete: { color: 0xb8bcc0, roughness: 0.76, metalness: 0.05, bumpScale: 0.16 },
         "dark-stone": { color: 0x4f545d, roughness: 0.84, metalness: 0.05, bumpScale: 0.18 },
         "glossy-ceramic": { color: 0xece9e3, roughness: 0.16, metalness: 0.05, bumpScale: 0.05 },
-        "brushed-metal": { color: 0xadb4bb, roughness: 0.28, metalness: 0.88, bumpScale: 0.12 },
-        "matte-black": { color: 0x22252a, roughness: 0.88, metalness: 0.03, bumpScale: 0.12 },
-        sandstone: { color: 0xd6c4a8, roughness: 0.76, metalness: 0.02, bumpScale: 0.14 },
-        slate: { color: 0x8a92a0, roughness: 0.68, metalness: 0.06, bumpScale: 0.12 },
+        "brushed-metal": { color: 0xadb4bb, roughness: 0.28, metalness: 0.88, bumpScale: 0.14 },
+        "matte-black": { color: 0x22252a, roughness: 0.88, metalness: 0.03, bumpScale: 0.15 },
+        sandstone: { color: 0xd6c4a8, roughness: 0.76, metalness: 0.02, bumpScale: 0.16 },
+        slate: { color: 0x8a92a0, roughness: 0.68, metalness: 0.06, bumpScale: 0.17 },
         "pearl-glaze": { color: 0xf1ece5, roughness: 0.14, metalness: 0.05, bumpScale: 0.06 },
-        charcoal: { color: 0x363940, roughness: 0.72, metalness: 0.05, bumpScale: 0.14 },
-        "smooth-sand": { color: 0xcbc1b0, roughness: 0.68, metalness: 0.01, bumpScale: 0.1 },
+        charcoal: { color: 0x363940, roughness: 0.72, metalness: 0.05, bumpScale: 0.15 },
+        "smooth-sand": { color: 0xcbc1b0, roughness: 0.68, metalness: 0.01, bumpScale: 0.15 },
         terrazzo: { color: 0xd7d8d2, roughness: 0.6, metalness: 0.03, bumpScale: 0.18 },
         basalt: { color: 0x565e67, roughness: 0.84, metalness: 0.03, bumpScale: 0.2 },
         "weathered-concrete": { color: 0xa8adb3, roughness: 0.8, metalness: 0.02, bumpScale: 0.18 },
@@ -1637,15 +2021,21 @@
       };
       const cfg = presets[type] || presets.concrete;
       const texture = imageDisplacementState.texture || generateTexture(type);
+      const detailTexture = generateDetailTexture(type);
       texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
       const mapScaleU = Math.max(0.1, numberValue("texture_scale_u"));
       const mapScaleV = Math.max(0.1, numberValue("texture_scale_v"));
       texture.repeat.set(mapScaleU, mapScaleV);
+      detailTexture.repeat.set(mapScaleU * 1.35, mapScaleV * 1.35);
       texture.offset.set(numberValue("texture_offset_u"), numberValue("texture_offset_v"));
+      detailTexture.offset.set(numberValue("texture_offset_u"), numberValue("texture_offset_v"));
       texture.center.set(0.5, 0.5);
+      detailTexture.center.set(0.5, 0.5);
       texture.rotation = (numberValue("texture_rotation") * Math.PI) / 180.0;
+      detailTexture.rotation = texture.rotation;
       if (renderer && renderer.capabilities) {
         texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+        detailTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
       }
       texture.generateMipmaps = true;
       texture.minFilter = THREE.LinearMipmapLinearFilter;
@@ -1658,8 +2048,9 @@
         roughness: cfg.roughness,
         metalness: cfg.metalness,
         map: texture,
-        bumpMap: texture,
-        bumpScale: cfg.bumpScale,
+        bumpMap: detailTexture,
+        roughnessMap: texture,
+        bumpScale: cfg.bumpScale * 1.85,
         side: THREE.DoubleSide,
       });
       return material;
@@ -1868,7 +2259,15 @@
       presetSelect.addEventListener("change", applySelectedPreset);
     }
 
+    if (languageSelect) {
+      languageSelect.value = getLanguage();
+      languageSelect.addEventListener("change", () => {
+        applyLanguage(getLanguage());
+      });
+    }
+
     window.addEventListener("resize", onWindowResize);
+    applyLanguage(getLanguage());
     updateShapeFieldVisibility();
     
     // Initialize preview with proper error handling
