@@ -6513,6 +6513,7 @@
       const printableOffsetX = Number(preset.printableOffsetX || 0);
       const printableOffsetY = Number(preset.printableOffsetY || 0);
       const blockedZones = Array.isArray(preset.blockedZones) ? preset.blockedZones : [];
+      const bedZ = -0.7;
       const halfWidth = width / 2;
       const halfDepth = depth / 2;
       const size = modelBox && !modelBox.isEmpty() ? modelBox.getSize(new THREE.Vector3()) : null;
@@ -6529,7 +6530,7 @@
           depthWrite: false,
         }),
       );
-      plane.position.z = -0.12;
+      plane.position.z = bedZ;
       group.add(plane);
 
       const printableArea = new THREE.Mesh(
@@ -6542,16 +6543,16 @@
           depthWrite: false,
         }),
       );
-      printableArea.position.set(printableOffsetX, printableOffsetY, -0.1);
+      printableArea.position.set(printableOffsetX, printableOffsetY, bedZ + 0.02);
       group.add(printableArea);
 
       const outline = new THREE.Line(
         new THREE.BufferGeometry().setFromPoints([
-          new THREE.Vector3(-halfWidth, -halfDepth, -0.06),
-          new THREE.Vector3(halfWidth, -halfDepth, -0.06),
-          new THREE.Vector3(halfWidth, halfDepth, -0.06),
-          new THREE.Vector3(-halfWidth, halfDepth, -0.06),
-          new THREE.Vector3(-halfWidth, -halfDepth, -0.06),
+          new THREE.Vector3(-halfWidth, -halfDepth, bedZ + 0.05),
+          new THREE.Vector3(halfWidth, -halfDepth, bedZ + 0.05),
+          new THREE.Vector3(halfWidth, halfDepth, bedZ + 0.05),
+          new THREE.Vector3(-halfWidth, halfDepth, bedZ + 0.05),
+          new THREE.Vector3(-halfWidth, -halfDepth, bedZ + 0.05),
         ]),
         new THREE.LineBasicMaterial({ color: exceedsBed ? 0xc2410c : 0x3b6b97, transparent: true, opacity: 0.95 }),
       );
@@ -6559,15 +6560,15 @@
 
       const centerLineX = new THREE.Line(
         new THREE.BufferGeometry().setFromPoints([
-          new THREE.Vector3(-halfWidth, 0, -0.05),
-          new THREE.Vector3(halfWidth, 0, -0.05),
+          new THREE.Vector3(-halfWidth, 0, bedZ + 0.06),
+          new THREE.Vector3(halfWidth, 0, bedZ + 0.06),
         ]),
         new THREE.LineBasicMaterial({ color: 0x7c93ac, transparent: true, opacity: 0.45 }),
       );
       const centerLineY = new THREE.Line(
         new THREE.BufferGeometry().setFromPoints([
-          new THREE.Vector3(0, -halfDepth, -0.05),
-          new THREE.Vector3(0, halfDepth, -0.05),
+          new THREE.Vector3(0, -halfDepth, bedZ + 0.06),
+          new THREE.Vector3(0, halfDepth, bedZ + 0.06),
         ]),
         new THREE.LineBasicMaterial({ color: 0x7c93ac, transparent: true, opacity: 0.45 }),
       );
@@ -6576,11 +6577,11 @@
 
       const printableOutline = new THREE.Line(
         new THREE.BufferGeometry().setFromPoints([
-          new THREE.Vector3(printableOffsetX - (printableWidth / 2), printableOffsetY - (printableDepth / 2), -0.04),
-          new THREE.Vector3(printableOffsetX + (printableWidth / 2), printableOffsetY - (printableDepth / 2), -0.04),
-          new THREE.Vector3(printableOffsetX + (printableWidth / 2), printableOffsetY + (printableDepth / 2), -0.04),
-          new THREE.Vector3(printableOffsetX - (printableWidth / 2), printableOffsetY + (printableDepth / 2), -0.04),
-          new THREE.Vector3(printableOffsetX - (printableWidth / 2), printableOffsetY - (printableDepth / 2), -0.04),
+          new THREE.Vector3(printableOffsetX - (printableWidth / 2), printableOffsetY - (printableDepth / 2), bedZ + 0.07),
+          new THREE.Vector3(printableOffsetX + (printableWidth / 2), printableOffsetY - (printableDepth / 2), bedZ + 0.07),
+          new THREE.Vector3(printableOffsetX + (printableWidth / 2), printableOffsetY + (printableDepth / 2), bedZ + 0.07),
+          new THREE.Vector3(printableOffsetX - (printableWidth / 2), printableOffsetY + (printableDepth / 2), bedZ + 0.07),
+          new THREE.Vector3(printableOffsetX - (printableWidth / 2), printableOffsetY - (printableDepth / 2), bedZ + 0.07),
         ]),
         new THREE.LineBasicMaterial({ color: exceedsBed ? 0xc2410c : 0x19548a, transparent: true, opacity: 0.95 }),
       );
@@ -6601,7 +6602,7 @@
             depthWrite: false,
           }),
         );
-        zoneMesh.position.set(zoneX, zoneY, -0.08);
+        zoneMesh.position.set(zoneX, zoneY, bedZ + 0.03);
         group.add(zoneMesh);
       }
 
@@ -6631,11 +6632,11 @@
       const labelSprite = new THREE.Sprite(new THREE.SpriteMaterial({
         map: labelTexture,
         transparent: true,
-        depthTest: false,
+        depthTest: true,
         depthWrite: false,
       }));
       labelSprite.scale.set(Math.max(96, width * 0.7), 18, 1);
-      labelSprite.position.set(0, halfDepth + 22, 0.8);
+      labelSprite.position.set(0, halfDepth + 22, bedZ + 0.08);
       group.add(labelSprite);
 
       printerBedVisual = group;
