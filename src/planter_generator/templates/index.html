@@ -174,6 +174,7 @@
       box-shadow: none;
     }
     .language-control {
+      position: relative;
       display: flex;
       align-items: center;
       gap: 8px;
@@ -182,22 +183,14 @@
       border-radius: 14px;
       padding: 6px 8px;
     }
-    .language-control label {
-      margin: 0;
-      font-size: 0.78rem;
-      font-weight: 700;
-      color: #334155;
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
-    }
     .language-flag {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: 1.8rem;
-      height: 1.8rem;
-      font-size: 1.15rem;
-      line-height: 1;
+      width: 24px;
+      height: 16px;
+      border-radius: 4px;
+      object-fit: cover;
+      box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.35);
+      background: linear-gradient(180deg, #ffffff 0%, #e5ebf3 100%);
+      flex: 0 0 auto;
     }
     .sr-only {
       position: absolute;
@@ -210,14 +203,94 @@
       white-space: nowrap;
       border: 0;
     }
-    .language-control select {
-      min-width: 126px;
-      height: 36px;
-      border-radius: 10px;
-      padding: 6px 10px;
-      font-size: 0.85rem;
+    .language-button {
       border: 1px solid #c2cfdf;
       background: #ffffff;
+      color: #334155;
+      min-width: 58px;
+      height: 36px;
+      border-radius: 10px;
+      padding: 6px 9px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      box-shadow: none;
+    }
+    .language-button:hover {
+      transform: none;
+      box-shadow: none;
+      border-color: #aebcd0;
+      background: #f8fbff;
+    }
+    .language-button:focus-visible {
+      outline: none;
+      border-color: #8fa6c6;
+      box-shadow: 0 0 0 4px rgba(147, 170, 203, 0.18);
+    }
+    .language-button[aria-expanded="true"] .language-chevron {
+      transform: rotate(180deg);
+    }
+    .language-chevron {
+      width: 9px;
+      height: 9px;
+      border-right: 2px solid #5f7087;
+      border-bottom: 2px solid #5f7087;
+      transform: rotate(45deg) translateY(-1px);
+      transition: transform 150ms ease;
+      flex: 0 0 auto;
+    }
+    .language-menu {
+      position: absolute;
+      top: calc(100% + 8px);
+      left: 0;
+      z-index: 40;
+      min-width: 220px;
+      max-height: min(60vh, 420px);
+      overflow-y: auto;
+      padding: 8px;
+      border-radius: 16px;
+      border: 1px solid #d5dde8;
+      background: rgba(255, 255, 255, 0.96);
+      box-shadow: 0 18px 40px rgba(15, 23, 42, 0.16);
+      backdrop-filter: blur(10px);
+    }
+    .language-option {
+      width: 100%;
+      min-height: 40px;
+      padding: 8px 10px;
+      border: 0;
+      border-radius: 12px;
+      background: transparent;
+      color: #1f2937;
+      box-shadow: none;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      justify-content: flex-start;
+      font-size: 0.9rem;
+      font-weight: 600;
+      text-align: left;
+    }
+    .language-option:hover,
+    .language-option:focus-visible {
+      transform: none;
+      box-shadow: none;
+      background: #eef4fb;
+      outline: none;
+    }
+    .language-option[aria-selected="true"] {
+      background: #dbeafe;
+      color: #0f3b75;
+    }
+    .language-option-label {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .language-control select {
+      pointer-events: none;
     }
     .header-actions button {
       padding: 8px 12px;
@@ -399,12 +472,21 @@
       </div>
       <div class="header-actions">
         <div class="language-control">
-          <label for="language-select">
-            <span id="language-flag" class="language-flag" aria-hidden="true">🇬🇧</span>
-            <span class="sr-only" data-i18n="languageLabel">Language</span>
-          </label>
-          <select id="language-select" aria-label="Language">
-            <option value="en">🇬🇧 English</option>
+          <span id="language-label" class="sr-only" data-i18n="languageLabel">Language</span>
+          <button
+            type="button"
+            id="language-button"
+            class="language-button"
+            aria-haspopup="listbox"
+            aria-expanded="false"
+            aria-labelledby="language-label"
+          >
+            <img id="language-flag" class="language-flag" alt="" src="">
+            <span class="language-chevron" aria-hidden="true"></span>
+          </button>
+          <div id="language-menu" class="language-menu" role="listbox" aria-labelledby="language-label" hidden></div>
+          <select id="language-select" class="sr-only" aria-label="Language">
+            <option value="en">English</option>
           </select>
         </div>
         <div class="preset-control">
@@ -718,6 +800,8 @@
     const presetSelect = document.getElementById("preset-select");
     const applyPresetButton = document.getElementById("apply-preset-btn");
     const languageSelect = document.getElementById("language-select");
+    const languageButton = document.getElementById("language-button");
+    const languageMenu = document.getElementById("language-menu");
     const languageFlag = document.getElementById("language-flag");
     const shapeControls = Array.from(document.querySelectorAll(".shape-control[data-shapes]"));
 
@@ -845,53 +929,78 @@
       { code: "zh", label: "中文" },
     ];
 
-    const LANGUAGE_FLAGS = {
-      en: "🇬🇧",
-      sq: "🇦🇱",
-      be: "🇧🇾",
-      bs: "🇧🇦",
-      bg: "🇧🇬",
-      cs: "🇨🇿",
-      da: "🇩🇰",
-      de: "🇩🇪",
-      et: "🇪🇪",
-      ga: "🇮🇪",
-      el: "🇬🇷",
-      es: "🇪🇸",
-      fr: "🇫🇷",
-      hr: "🇭🇷",
-      is: "🇮🇸",
-      it: "🇮🇹",
-      ja: "🇯🇵",
-      lb: "🇱🇺",
-      lt: "🇱🇹",
-      lv: "🇱🇻",
-      hu: "🇭🇺",
-      mk: "🇲🇰",
-      mt: "🇲🇹",
-      nl: "🇳🇱",
-      no: "🇳🇴",
-      pl: "🇵🇱",
-      pt: "🇵🇹",
-      ro: "🇷🇴",
-      ru: "🇷🇺",
-      sk: "🇸🇰",
-      sl: "🇸🇮",
-      sr: "🇷🇸",
-      fi: "🇫🇮",
-      sv: "🇸🇪",
-      tr: "🇹🇷",
-      uk: "🇺🇦",
-      zh: "🇨🇳",
+    const LANGUAGE_FLAG_COUNTRIES = {
+      en: "gb",
+      sq: "al",
+      be: "by",
+      bs: "ba",
+      bg: "bg",
+      cs: "cz",
+      da: "dk",
+      de: "de",
+      et: "ee",
+      ga: "ie",
+      el: "gr",
+      es: "es",
+      fr: "fr",
+      hr: "hr",
+      is: "is",
+      it: "it",
+      ja: "jp",
+      lb: "lu",
+      lt: "lt",
+      lv: "lv",
+      hu: "hu",
+      mk: "mk",
+      mt: "mt",
+      nl: "nl",
+      no: "no",
+      pl: "pl",
+      pt: "pt",
+      ro: "ro",
+      ru: "ru",
+      sk: "sk",
+      sl: "si",
+      sr: "rs",
+      fi: "fi",
+      sv: "se",
+      tr: "tr",
+      uk: "ua",
+      zh: "cn",
     };
 
-    function getLanguageFlag(code) {
-      return LANGUAGE_FLAGS[code] || "🌐";
+    function flagSvgUrl(countryCode) {
+      const normalized = (countryCode || "").toUpperCase();
+      if (!/^[A-Z]{2}$/.test(normalized)) {
+        return "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 16'%3E%3Crect width='24' height='16' rx='3' fill='%23dbe7f5'/%3E%3Ccircle cx='12' cy='8' r='4.2' fill='%2385a3c7'/%3E%3C/svg%3E";
+      }
+      const codePoints = normalized
+        .split("")
+        .map((char) => (0x1F1E6 + (char.charCodeAt(0) - 65)).toString(16))
+        .join("-");
+      return `https://cdn.jsdelivr.net/npm/twemoji@14.0.2/assets/svg/${codePoints}.svg`;
+    }
+
+    function getLanguageFlagUrl(code) {
+      return flagSvgUrl(LANGUAGE_FLAG_COUNTRIES[code]);
     }
 
     function updateLanguageFlag(code) {
       if (!languageFlag) return;
-      languageFlag.textContent = getLanguageFlag(code);
+      languageFlag.src = getLanguageFlagUrl(code);
+    }
+
+    function updateLanguageMenuSelection(code) {
+      if (!languageMenu) return;
+      for (const option of languageMenu.querySelectorAll(".language-option")) {
+        option.setAttribute("aria-selected", option.dataset.lang === code ? "true" : "false");
+      }
+    }
+
+    function setLanguageMenuOpen(isOpen) {
+      if (!languageButton || !languageMenu) return;
+      languageButton.setAttribute("aria-expanded", isOpen ? "true" : "false");
+      languageMenu.hidden = !isOpen;
     }
 
     const I18N_KEYS = [
@@ -4853,10 +4962,19 @@
       if (!languageSelect) return;
       const current = localStorage.getItem("potify_lang") || languageSelect.value || "en";
       languageSelect.innerHTML = LANGUAGE_OPTIONS.map((language) => (
-        `<option value="${language.code}">${getLanguageFlag(language.code)} ${language.label}</option>`
+        `<option value="${language.code}">${language.label}</option>`
       )).join("");
+      if (languageMenu) {
+        languageMenu.innerHTML = LANGUAGE_OPTIONS.map((language) => (
+          `<button type="button" class="language-option" role="option" data-lang="${language.code}" aria-selected="false">`
+          + `<img class="language-flag" alt="" src="${getLanguageFlagUrl(language.code)}">`
+          + `<span class="language-option-label">${language.label}</span>`
+          + `</button>`
+        )).join("");
+      }
       languageSelect.value = LANGUAGE_OPTIONS.some((language) => language.code === current) ? current : "en";
       updateLanguageFlag(languageSelect.value);
+      updateLanguageMenuSelection(languageSelect.value);
     }
 
     function getLanguage() {
@@ -4877,7 +4995,13 @@
       }
       if (languageSelect) {
         languageSelect.setAttribute("aria-label", dict.ariaLanguage || fallback.ariaLanguage);
+      }
+      if (languageButton) {
+        languageButton.setAttribute("aria-label", dict.ariaLanguage || fallback.ariaLanguage);
+      }
+      if (languageSelect) {
         updateLanguageFlag(lang);
+        updateLanguageMenuSelection(lang);
       }
       localStorage.setItem("potify_lang", lang);
     }
@@ -6287,6 +6411,33 @@
       languageSelect.value = getLanguage();
       languageSelect.addEventListener("change", () => {
         applyLanguage(getLanguage());
+      });
+    }
+
+    if (languageButton && languageMenu && languageSelect) {
+      languageButton.addEventListener("click", () => {
+        setLanguageMenuOpen(languageMenu.hidden);
+      });
+
+      languageMenu.addEventListener("click", (event) => {
+        const option = event.target.closest(".language-option");
+        if (!option) return;
+        languageSelect.value = option.dataset.lang || "en";
+        applyLanguage(getLanguage());
+        setLanguageMenuOpen(false);
+      });
+
+      document.addEventListener("pointerdown", (event) => {
+        if (!languageMenu.hidden && !event.target.closest(".language-control")) {
+          setLanguageMenuOpen(false);
+        }
+      });
+
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape" && !languageMenu.hidden) {
+          setLanguageMenuOpen(false);
+          languageButton.focus();
+        }
       });
     }
 
