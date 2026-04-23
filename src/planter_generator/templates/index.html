@@ -31,8 +31,6 @@
       background: radial-gradient(circle at top left, #f7f9fb 0%, #eceff4 45%, #eef2f7 100%);
     }
     .card {
-        lastModelBox = box.clone();
-        updateBoundingBoxHelper(box);
       width: 100vw;
       height: 100vh;
       margin: 0;
@@ -752,34 +750,55 @@
                   <optgroup label="Bambu Lab">
                     <option value="bambu-a1-mini">A1 mini 180 x 180</option>
                     <option value="bambu-a1">A1 256 x 256</option>
+                    <option value="bambu-p1p">P1P 256 x 256</option>
+                    <option value="bambu-p1s">P1S 256 x 256</option>
+                    <option value="bambu-p2s">P2S 256 x 256</option>
+                    <option value="bambu-x1">X1 / X1C / X1E 256 x 256</option>
                     <option value="bambu-p1-x1">P1P / P1S / X1 / X1C / X1E 256 x 256</option>
                     <option value="bambu-h2d">H2D 350 x 320</option>
                   </optgroup>
                   <optgroup label="Ender">
                     <option value="ender-3-family">Ender 3 / Pro / V2 / Neo / V3 SE / V3 KE 220 x 220</option>
+                    <option value="ender-3-v3">Ender 3 V3 220 x 220</option>
+                    <option value="ender-3-v3-se">Ender 3 V3 SE 220 x 220</option>
+                    <option value="ender-3-v3-ke">Ender 3 V3 KE 220 x 220</option>
                     <option value="ender-5-family">Ender 5 / Ender 5 S1 220 x 220</option>
                     <option value="ender-6">Ender 6 250 x 250</option>
                     <option value="ender-7">Ender 7 250 x 250</option>
                     <option value="ender-3-max">Ender 3 Max / Max Neo 300 x 300</option>
+                    <option value="ender-3-s1-plus">Ender 3 S1 Plus 300 x 300</option>
                     <option value="ender-3-v3-plus">Ender 3 V3 Plus 300 x 300</option>
                     <option value="ender-5-plus">Ender 5 Plus 350 x 350</option>
                   </optgroup>
                   <optgroup label="Prusa">
                     <option value="prusa-mini">MINI / MINI+ 180 x 180</option>
                     <option value="prusa-mk-family">MK3S+ / MK4 / MK4S 250 x 210</option>
+                    <option value="prusa-mk39">MK3.9 / MK3.9S 250 x 210</option>
+                    <option value="prusa-mk35">MK3.5 / MK3.5S 250 x 210</option>
                     <option value="prusa-core-one">CORE One 250 x 220</option>
                     <option value="prusa-xl">XL 360 x 360</option>
                   </optgroup>
                   <optgroup label="Creality">
+                    <option value="creality-ender3-family">Ender 3 family (Creality) 220 x 220</option>
                     <option value="creality-k1">K1 / K1C 220 x 220</option>
+                    <option value="creality-k1-se">K1 SE 220 x 220</option>
                     <option value="creality-k1-max">K1 Max 300 x 300</option>
                     <option value="creality-k2-plus">K2 Plus 350 x 350</option>
                     <option value="creality-cr6-se">CR-6 SE 235 x 235</option>
+                    <option value="creality-cr10-se">CR-10 SE 220 x 220</option>
                     <option value="creality-cr10-family">CR-10 / CR-10 Smart / Smart Pro 300 x 300</option>
+                    <option value="creality-crm4">CR-M4 450 x 450</option>
                   </optgroup>
                   <optgroup label="Elegoo">
+                    <option value="elegoo-neptune-2-family">Neptune 2 / 2S / 2D 220 x 220</option>
+                    <option value="elegoo-neptune-3">Neptune 3 220 x 220</option>
+                    <option value="elegoo-neptune-3-pro">Neptune 3 Pro 225 x 225</option>
+                    <option value="elegoo-neptune-4">Neptune 4 225 x 225</option>
+                    <option value="elegoo-neptune-4-pro">Neptune 4 Pro 225 x 225</option>
                     <option value="elegoo-neptune-standard">Neptune 3 / 3 Pro / 4 / 4 Pro 225 x 225</option>
+                    <option value="elegoo-neptune-4-plus">Neptune 4 Plus 320 x 320</option>
                     <option value="elegoo-neptune-plus">Neptune 3 Plus / 4 Plus 320 x 320</option>
+                    <option value="elegoo-neptune-4-max">Neptune 4 Max 420 x 420</option>
                     <option value="elegoo-neptune-max">Neptune 3 Max / 4 Max 420 x 420</option>
                   </optgroup>
                 </select>
@@ -1122,28 +1141,101 @@
 
     const PRINTER_BED_PRESETS = {
       none: null,
-      "bambu-a1-mini": { label: "Bambu Lab A1 mini", width: 180, depth: 180, brand: "Bambu Lab" },
-      "bambu-a1": { label: "Bambu Lab A1", width: 256, depth: 256, brand: "Bambu Lab" },
-      "bambu-p1-x1": { label: "Bambu Lab P1 / X1 series", width: 256, depth: 256, brand: "Bambu Lab" },
-      "bambu-h2d": { label: "Bambu Lab H2D", width: 350, depth: 320, brand: "Bambu Lab" },
+      "bambu-a1-mini": {
+        label: "Bambu Lab A1 mini", width: 180, depth: 180, brand: "Bambu Lab",
+        printableWidth: 174, printableDepth: 174,
+        blockedZones: [{ x: 0, y: 85, width: 180, depth: 8 }],
+      },
+      "bambu-a1": {
+        label: "Bambu Lab A1", width: 256, depth: 256, brand: "Bambu Lab",
+        printableWidth: 250, printableDepth: 250,
+        blockedZones: [{ x: 0, y: 124, width: 256, depth: 8 }],
+      },
+      "bambu-p1p": {
+        label: "Bambu Lab P1P", width: 256, depth: 256, brand: "Bambu Lab",
+        printableWidth: 250, printableDepth: 250,
+        blockedZones: [{ x: 0, y: 124, width: 256, depth: 8 }],
+      },
+      "bambu-p1s": {
+        label: "Bambu Lab P1S", width: 256, depth: 256, brand: "Bambu Lab",
+        printableWidth: 250, printableDepth: 250,
+        blockedZones: [{ x: 0, y: 124, width: 256, depth: 8 }],
+      },
+      "bambu-p2s": {
+        label: "Bambu Lab P2S", width: 256, depth: 256, brand: "Bambu Lab",
+        printableWidth: 250, printableDepth: 250,
+        blockedZones: [{ x: 0, y: 124, width: 256, depth: 8 }],
+      },
+      "bambu-x1": {
+        label: "Bambu Lab X1 / X1C / X1E", width: 256, depth: 256, brand: "Bambu Lab",
+        printableWidth: 250, printableDepth: 250,
+        blockedZones: [{ x: 0, y: 124, width: 256, depth: 8 }],
+      },
+      "bambu-p1-x1": {
+        label: "Bambu Lab P1 / X1 series", width: 256, depth: 256, brand: "Bambu Lab",
+        printableWidth: 250, printableDepth: 250,
+        blockedZones: [{ x: 0, y: 124, width: 256, depth: 8 }],
+      },
+      "bambu-h2d": {
+        label: "Bambu Lab H2D", width: 350, depth: 320, brand: "Bambu Lab",
+        printableWidth: 340, printableDepth: 310,
+        blockedZones: [{ x: 0, y: 154, width: 350, depth: 8 }],
+      },
       "ender-3-family": { label: "Ender 3 family", width: 220, depth: 220, brand: "Ender" },
+      "ender-3-v3": { label: "Ender 3 V3", width: 220, depth: 220, brand: "Ender" },
+      "ender-3-v3-se": { label: "Ender 3 V3 SE", width: 220, depth: 220, brand: "Ender" },
+      "ender-3-v3-ke": { label: "Ender 3 V3 KE", width: 220, depth: 220, brand: "Ender" },
       "ender-5-family": { label: "Ender 5 family", width: 220, depth: 220, brand: "Ender" },
       "ender-6": { label: "Ender 6", width: 250, depth: 250, brand: "Ender" },
       "ender-7": { label: "Ender 7", width: 250, depth: 250, brand: "Ender" },
       "ender-3-max": { label: "Ender 3 Max family", width: 300, depth: 300, brand: "Ender" },
+      "ender-3-s1-plus": { label: "Ender 3 S1 Plus", width: 300, depth: 300, brand: "Ender" },
       "ender-3-v3-plus": { label: "Ender 3 V3 Plus", width: 300, depth: 300, brand: "Ender" },
       "ender-5-plus": { label: "Ender 5 Plus", width: 350, depth: 350, brand: "Ender" },
-      "prusa-mini": { label: "Prusa MINI+", width: 180, depth: 180, brand: "Prusa" },
-      "prusa-mk-family": { label: "Prusa MK family", width: 250, depth: 210, brand: "Prusa" },
-      "prusa-core-one": { label: "Prusa CORE One", width: 250, depth: 220, brand: "Prusa" },
+      "prusa-mini": {
+        label: "Prusa MINI+", width: 180, depth: 180, brand: "Prusa",
+        printableWidth: 180, printableDepth: 180,
+        blockedZones: [{ x: 0, y: 86, width: 180, depth: 6 }],
+      },
+      "prusa-mk-family": {
+        label: "Prusa MK family", width: 250, depth: 210, brand: "Prusa",
+        printableWidth: 250, printableDepth: 210,
+        blockedZones: [{ x: 0, y: 102, width: 250, depth: 6 }],
+      },
+      "prusa-mk39": {
+        label: "Prusa MK3.9 / MK3.9S", width: 250, depth: 210, brand: "Prusa",
+        printableWidth: 250, printableDepth: 210,
+        blockedZones: [{ x: 0, y: 102, width: 250, depth: 6 }],
+      },
+      "prusa-mk35": {
+        label: "Prusa MK3.5 / MK3.5S", width: 250, depth: 210, brand: "Prusa",
+        printableWidth: 250, printableDepth: 210,
+        blockedZones: [{ x: 0, y: 102, width: 250, depth: 6 }],
+      },
+      "prusa-core-one": {
+        label: "Prusa CORE One", width: 250, depth: 220, brand: "Prusa",
+        printableWidth: 250, printableDepth: 220,
+        blockedZones: [{ x: 0, y: 107, width: 250, depth: 6 }],
+      },
       "prusa-xl": { label: "Prusa XL", width: 360, depth: 360, brand: "Prusa" },
+      "creality-ender3-family": { label: "Creality Ender 3 family", width: 220, depth: 220, brand: "Creality" },
       "creality-k1": { label: "Creality K1 / K1C", width: 220, depth: 220, brand: "Creality" },
+      "creality-k1-se": { label: "Creality K1 SE", width: 220, depth: 220, brand: "Creality" },
       "creality-k1-max": { label: "Creality K1 Max", width: 300, depth: 300, brand: "Creality" },
       "creality-k2-plus": { label: "Creality K2 Plus", width: 350, depth: 350, brand: "Creality" },
       "creality-cr6-se": { label: "Creality CR-6 SE", width: 235, depth: 235, brand: "Creality" },
+      "creality-cr10-se": { label: "Creality CR-10 SE", width: 220, depth: 220, brand: "Creality" },
       "creality-cr10-family": { label: "Creality CR-10 family", width: 300, depth: 300, brand: "Creality" },
+      "creality-crm4": { label: "Creality CR-M4", width: 450, depth: 450, brand: "Creality" },
+      "elegoo-neptune-2-family": { label: "Elegoo Neptune 2 family", width: 220, depth: 220, brand: "Elegoo" },
+      "elegoo-neptune-3": { label: "Elegoo Neptune 3", width: 220, depth: 220, brand: "Elegoo" },
+      "elegoo-neptune-3-pro": { label: "Elegoo Neptune 3 Pro", width: 225, depth: 225, brand: "Elegoo" },
+      "elegoo-neptune-4": { label: "Elegoo Neptune 4", width: 225, depth: 225, brand: "Elegoo" },
+      "elegoo-neptune-4-pro": { label: "Elegoo Neptune 4 Pro", width: 225, depth: 225, brand: "Elegoo" },
       "elegoo-neptune-standard": { label: "Elegoo Neptune standard", width: 225, depth: 225, brand: "Elegoo" },
+      "elegoo-neptune-4-plus": { label: "Elegoo Neptune 4 Plus", width: 320, depth: 320, brand: "Elegoo" },
       "elegoo-neptune-plus": { label: "Elegoo Neptune Plus", width: 320, depth: 320, brand: "Elegoo" },
+      "elegoo-neptune-4-max": { label: "Elegoo Neptune 4 Max", width: 420, depth: 420, brand: "Elegoo" },
       "elegoo-neptune-max": { label: "Elegoo Neptune Max", width: 420, depth: 420, brand: "Elegoo" },
     };
     
@@ -6416,24 +6508,42 @@
 
       const width = preset.width;
       const depth = preset.depth;
+      const printableWidth = Math.min(width, Math.max(1, preset.printableWidth || width));
+      const printableDepth = Math.min(depth, Math.max(1, preset.printableDepth || depth));
+      const printableOffsetX = Number(preset.printableOffsetX || 0);
+      const printableOffsetY = Number(preset.printableOffsetY || 0);
+      const blockedZones = Array.isArray(preset.blockedZones) ? preset.blockedZones : [];
       const halfWidth = width / 2;
       const halfDepth = depth / 2;
       const size = modelBox && !modelBox.isEmpty() ? modelBox.getSize(new THREE.Vector3()) : null;
-      const exceedsBed = !!size && (size.x > width || size.y > depth);
+      const exceedsBed = !!size && (size.x > printableWidth || size.y > printableDepth);
 
       const group = new THREE.Group();
       const plane = new THREE.Mesh(
         new THREE.PlaneGeometry(width, depth),
         new THREE.MeshBasicMaterial({
-          color: exceedsBed ? 0xf8d3ca : 0xdbe9f6,
+          color: 0xd7dee8,
           transparent: true,
-          opacity: 0.45,
+          opacity: 0.48,
           side: THREE.DoubleSide,
           depthWrite: false,
         }),
       );
       plane.position.z = -0.12;
       group.add(plane);
+
+      const printableArea = new THREE.Mesh(
+        new THREE.PlaneGeometry(printableWidth, printableDepth),
+        new THREE.MeshBasicMaterial({
+          color: exceedsBed ? 0xf8d3ca : 0xdbe9f6,
+          transparent: true,
+          opacity: 0.62,
+          side: THREE.DoubleSide,
+          depthWrite: false,
+        }),
+      );
+      printableArea.position.set(printableOffsetX, printableOffsetY, -0.1);
+      group.add(printableArea);
 
       const outline = new THREE.Line(
         new THREE.BufferGeometry().setFromPoints([
@@ -6464,6 +6574,37 @@
       group.add(centerLineX);
       group.add(centerLineY);
 
+      const printableOutline = new THREE.Line(
+        new THREE.BufferGeometry().setFromPoints([
+          new THREE.Vector3(printableOffsetX - (printableWidth / 2), printableOffsetY - (printableDepth / 2), -0.04),
+          new THREE.Vector3(printableOffsetX + (printableWidth / 2), printableOffsetY - (printableDepth / 2), -0.04),
+          new THREE.Vector3(printableOffsetX + (printableWidth / 2), printableOffsetY + (printableDepth / 2), -0.04),
+          new THREE.Vector3(printableOffsetX - (printableWidth / 2), printableOffsetY + (printableDepth / 2), -0.04),
+          new THREE.Vector3(printableOffsetX - (printableWidth / 2), printableOffsetY - (printableDepth / 2), -0.04),
+        ]),
+        new THREE.LineBasicMaterial({ color: exceedsBed ? 0xc2410c : 0x19548a, transparent: true, opacity: 0.95 }),
+      );
+      group.add(printableOutline);
+
+      for (const zone of blockedZones) {
+        const zoneWidth = Math.max(1, Number(zone.width || 0));
+        const zoneDepth = Math.max(1, Number(zone.depth || 0));
+        const zoneX = Number(zone.x || 0);
+        const zoneY = Number(zone.y || 0);
+        const zoneMesh = new THREE.Mesh(
+          new THREE.PlaneGeometry(zoneWidth, zoneDepth),
+          new THREE.MeshBasicMaterial({
+            color: 0xe05a49,
+            transparent: true,
+            opacity: 0.45,
+            side: THREE.DoubleSide,
+            depthWrite: false,
+          }),
+        );
+        zoneMesh.position.set(zoneX, zoneY, -0.08);
+        group.add(zoneMesh);
+      }
+
       const labelCanvas = document.createElement("canvas");
       labelCanvas.width = 512;
       labelCanvas.height = 96;
@@ -6478,7 +6619,12 @@
       labelContext.font = "700 28px 'Segoe UI', Arial, sans-serif";
       labelContext.textAlign = "center";
       labelContext.textBaseline = "middle";
-      labelContext.fillText(`${preset.label} ${width} x ${depth} mm`, labelCanvas.width / 2, labelCanvas.height / 2);
+      const zonesInfo = blockedZones.length ? `, blocked: ${blockedZones.length}` : "";
+      labelContext.fillText(
+        `${preset.label} bed ${width} x ${depth} mm, print ${printableWidth} x ${printableDepth} mm${zonesInfo}`,
+        labelCanvas.width / 2,
+        labelCanvas.height / 2,
+      );
 
       const labelTexture = new THREE.CanvasTexture(labelCanvas);
       labelTexture.colorSpace = THREE.SRGBColorSpace;
