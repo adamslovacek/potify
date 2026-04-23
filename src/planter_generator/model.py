@@ -781,6 +781,54 @@ def build_planter_sleeve(config: GeneratorConfig) -> trimesh.Trimesh:
     return _build_planter_mesh(config)
 
 
+def analyze_printability(config: GeneratorConfig) -> list[str]:
+    """Return non-fatal printability warnings for common FDM setups."""
+    warnings: list[str] = []
+
+    nozzle_mm = 0.4
+    recommended_min_wall = nozzle_mm * 3.0
+    recommended_min_base = nozzle_mm * 3.0
+
+    if config.wall_thickness_mm < recommended_min_wall:
+        warnings.append(
+            f"Wall thickness {config.wall_thickness_mm:.2f} mm is thin for a 0.4 mm nozzle "
+            f"(recommended >= {recommended_min_wall:.2f} mm)."
+        )
+
+    if config.include_bottom and config.base_thickness_mm < recommended_min_base:
+        warnings.append(
+            f"Base thickness {config.base_thickness_mm:.2f} mm is low for durable prints "
+            f"(recommended >= {recommended_min_base:.2f} mm)."
+        )
+
+    if abs(config.taper_deg) > 5.0:
+        warnings.append(
+            f"Taper {config.taper_deg:.1f} deg can introduce steep overhangs and poorer first-layer stability."
+        )
+
+    if config.texture_strength_mm > (config.wall_thickness_mm * 0.65):
+        warnings.append(
+            "Texture strength is high relative to wall thickness; local walls may become too thin."
+        )
+
+    if config.height_mm / max(config.wall_thickness_mm, 1e-6) > 70:
+        warnings.append(
+            "Tall and slender geometry may wobble during print. Consider thicker walls or lower height."
+        )
+
+    if config.sections > 220:
+        warnings.append(
+            "Very high section count increases mesh complexity and slicer memory usage."
+        )
+
+    if config.include_bottom and 0 < config.drain_hole_diameter_mm < 1.2:
+        warnings.append(
+            "Drain hole diameter is very small and can close during printing."
+        )
+
+    return warnings
+
+
 def export_model(model: trimesh.Trimesh, output_stem: Path, fmt: ExportFormat) -> list[Path]:
     output_stem.parent.mkdir(parents=True, exist_ok=True)
     written: list[Path] = []

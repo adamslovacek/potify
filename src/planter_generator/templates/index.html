@@ -411,6 +411,115 @@
       min-height: 1.2em;
       margin-top: 8px;
     }
+    .preview-diagnostics {
+      margin-top: 10px;
+      padding: 10px 12px;
+      border-radius: 14px;
+      border: 1px solid #d8e0eb;
+      background: #f8fbff;
+      color: #2c3d54;
+      font-size: 0.84rem;
+      line-height: 1.4;
+    }
+    .preview-diagnostics strong {
+      display: block;
+      margin-bottom: 4px;
+      font-size: 0.8rem;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: #516276;
+    }
+    .preview-diagnostics ul {
+      margin: 0;
+      padding-left: 18px;
+    }
+    .history-control {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      padding: 6px;
+      border: 1px solid #d5dde8;
+      border-radius: 14px;
+      background: #eef2f7;
+    }
+    .history-control button {
+      min-height: 36px;
+      border-radius: 10px;
+      padding: 8px 10px;
+      font-size: 0.78rem;
+      box-shadow: none;
+    }
+    .material-thumbs {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .material-thumb {
+      border: 1px solid #cad5e3;
+      border-radius: 10px;
+      padding: 4px;
+      background: #fff;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      align-items: stretch;
+      box-shadow: none;
+      color: #334155;
+      min-height: 52px;
+    }
+    .material-thumb:hover {
+      transform: none;
+      box-shadow: none;
+      border-color: #9ab1ce;
+    }
+    .material-thumb[aria-selected="true"] {
+      border-color: #4675ad;
+      box-shadow: inset 0 0 0 1px rgba(70, 117, 173, 0.35);
+    }
+    .material-thumb-swatch {
+      border-radius: 8px;
+      height: 16px;
+    }
+    .material-thumb-label {
+      font-size: 0.68rem;
+      line-height: 1.15;
+      color: #3e4d62;
+      text-align: center;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .texture-editor {
+      margin-top: 10px;
+      padding: 10px;
+      border: 1px solid #d5dde8;
+      border-radius: 12px;
+      background: #f9fbff;
+      display: grid;
+      gap: 8px;
+    }
+    .texture-editor[hidden] {
+      display: none;
+    }
+    .texture-editor canvas {
+      width: 100%;
+      max-height: 140px;
+      object-fit: contain;
+      border-radius: 10px;
+      border: 1px solid #d3ddea;
+      background: #fff;
+    }
+    .texture-editor-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .texture-editor label {
+      font-size: 0.78rem;
+      gap: 4px;
+    }
     .toggle-label {
       flex-direction: row;
       align-items: center;
@@ -471,6 +580,10 @@
         <p data-i18n="subtitle">Browser UI for generating 3D-printable planter sleeves in STL and 3MF.</p>
       </div>
       <div class="header-actions">
+        <div class="history-control">
+          <button type="button" id="undo-btn" class="button-secondary" title="Undo (Ctrl+Z)">Undo</button>
+          <button type="button" id="redo-btn" class="button-secondary" title="Redo (Ctrl+Y)">Redo</button>
+        </div>
         <div class="language-control">
           <span id="language-label" class="sr-only" data-i18n="languageLabel">Language</span>
           <button
@@ -542,6 +655,10 @@
             <canvas id="preview-canvas"></canvas>
           </div>
           <div id="preview-error" class="preview-error"></div>
+          <div id="printability-panel" class="preview-diagnostics">
+            <strong>Printability diagnostics</strong>
+            <ul id="printability-list"></ul>
+          </div>
         </aside>
 
         <form id="generator-form" method="post" action="/generate" class="panel menu-panel" enctype="multipart/form-data">
@@ -677,6 +794,27 @@
                   <span data-i18n="textureImageLabel">Texture image (PNG/JPG/WebP)</span>
                   <input name="texture_image" id="texture-image" type="file" accept="image/png,image/jpeg,image/webp,image/*">
                 </label>
+                <div id="texture-editor" class="texture-editor" hidden>
+                  <canvas id="texture-preview-canvas" width="256" height="160"></canvas>
+                  <div class="texture-editor-grid">
+                    <label>
+                      Brightness
+                      <input id="texture-brightness" type="range" min="-100" max="100" step="1" value="0">
+                    </label>
+                    <label>
+                      Contrast
+                      <input id="texture-contrast" type="range" min="-100" max="100" step="1" value="0">
+                    </label>
+                    <label>
+                      Blur
+                      <input id="texture-blur" type="range" min="0" max="6" step="0.2" value="0">
+                    </label>
+                    <label class="toggle-label">
+                      <input id="texture-invert" type="checkbox">
+                      <span>Invert</span>
+                    </label>
+                  </div>
+                </div>
                 <label>
                   <span data-i18n="textureStrengthLabel">Texture strength (mm)</span>
                   <input name="texture_strength" type="number" step="0.1" min="0" max="5" value="{{ values.texture_strength }}" required>
@@ -768,6 +906,7 @@
                     </optgroup>
                   </select>
                 </label>
+                <div id="material-thumbs" class="material-thumbs"></div>
               </div>
             </details>
         </div>
@@ -797,8 +936,18 @@
     const loadConfigButton = document.getElementById("load-config-btn");
     const loadConfigInput = document.getElementById("load-config-input");
     const textureImageInput = document.getElementById("texture-image");
+    const textureEditor = document.getElementById("texture-editor");
+    const texturePreviewCanvas = document.getElementById("texture-preview-canvas");
+    const textureBrightnessInput = document.getElementById("texture-brightness");
+    const textureContrastInput = document.getElementById("texture-contrast");
+    const textureBlurInput = document.getElementById("texture-blur");
+    const textureInvertInput = document.getElementById("texture-invert");
     const presetSelect = document.getElementById("preset-select");
     const applyPresetButton = document.getElementById("apply-preset-btn");
+    const undoButton = document.getElementById("undo-btn");
+    const redoButton = document.getElementById("redo-btn");
+    const printabilityList = document.getElementById("printability-list");
+    const materialThumbs = document.getElementById("material-thumbs");
     const languageSelect = document.getElementById("language-select");
     const languageButton = document.getElementById("language-button");
     const languageMenu = document.getElementById("language-menu");
@@ -811,6 +960,15 @@
       height: 0,
       texture: null,
       loading: false,
+      originalData: null,
+      originalWidth: 0,
+      originalHeight: 0,
+    };
+
+    const historyState = {
+      stack: [],
+      index: -1,
+      restoring: false,
     };
     
     if (!canvas) {
@@ -860,6 +1018,8 @@
       }
 
       updateShapeFieldVisibility();
+      syncMaterialThumbSelection();
+      updatePrintabilityDiagnostics();
       updatePreview();
     }
 
@@ -5257,6 +5417,7 @@
       if (!preset) return;
       const fdmPreset = normalizePresetForFdm(preset);
       applyLoadedConfig(fdmPreset);
+      pushHistorySnapshot();
       if (previewError) previewError.textContent = "";
     }
 
@@ -5267,6 +5428,7 @@
         const raw = await file.text();
         const parsed = JSON.parse(raw);
         applyLoadedConfig(parsed);
+        pushHistorySnapshot();
         if (previewError) previewError.textContent = "";
       } catch (error) {
         console.error("Failed to load JSON config:", error);
@@ -5331,6 +5493,119 @@
         ],
       },
     ];
+
+    const MATERIAL_SWATCHES = {
+      concrete: ["#d4d8dd", "#9aa3af"],
+      "dark-stone": ["#6b7280", "#374151"],
+      sandstone: ["#e0c7a3", "#b99268"],
+      slate: ["#a3acb8", "#5f6d7d"],
+      terrazzo: ["#e8e8e3", "#b8b9b2"],
+      basalt: ["#6a727c", "#404852"],
+      "weathered-concrete": ["#c2c6cc", "#8d959f"],
+      "glossy-ceramic": ["#f2efe8", "#cfc9bd"],
+      "pearl-glaze": ["#f5efe7", "#d8cfbf"],
+      "porcelain-speckle": ["#f8f6f2", "#c9c4b9"],
+      terracotta: ["#c7775a", "#8b4c38"],
+      raku: ["#4d5159", "#1f2329"],
+      "brushed-metal": ["#c6cdd5", "#7e8894"],
+      "oxidized-copper": ["#7f9285", "#4f5f57"],
+      "worn-steel": ["#97a0ab", "#5f6a78"],
+      "matte-black": ["#3d4148", "#161a20"],
+      charcoal: ["#585d66", "#2b2f36"],
+      "smooth-sand": ["#d8cdb9", "#a99d89"],
+      travertine: ["#deccb1", "#b39874"],
+      "micro-cement": ["#ced2d8", "#9199a3"],
+    };
+
+    function collectFormSnapshot() {
+      const snapshot = {};
+      for (const [name, element] of Object.entries(inputs)) {
+        if (!element) continue;
+        snapshot[name] = element.type === "checkbox" ? !!element.checked : String(element.value ?? "");
+      }
+      return snapshot;
+    }
+
+    function applySnapshot(snapshot, options = {}) {
+      for (const [name, value] of Object.entries(snapshot)) {
+        const element = inputs[name];
+        if (!element) continue;
+        if (element.type === "checkbox") {
+          element.checked = !!value;
+        } else {
+          element.value = String(value);
+        }
+      }
+      updateShapeFieldVisibility();
+      syncMaterialThumbSelection();
+      if (!options.skipRender) updatePreview();
+    }
+
+    function pushHistorySnapshot() {
+      if (historyState.restoring) return;
+      const snapshot = collectFormSnapshot();
+      const last = historyState.stack[historyState.index];
+      const encoded = JSON.stringify(snapshot);
+      if (last && JSON.stringify(last) === encoded) return;
+      historyState.stack = historyState.stack.slice(0, historyState.index + 1);
+      historyState.stack.push(snapshot);
+      historyState.index = historyState.stack.length - 1;
+      if (historyState.stack.length > 120) {
+        historyState.stack.shift();
+        historyState.index -= 1;
+      }
+      updateHistoryButtons();
+    }
+
+    function updateHistoryButtons() {
+      if (undoButton) undoButton.disabled = historyState.index <= 0;
+      if (redoButton) redoButton.disabled = historyState.index >= (historyState.stack.length - 1);
+    }
+
+    function runUndo() {
+      if (historyState.index <= 0) return;
+      historyState.index -= 1;
+      historyState.restoring = true;
+      applySnapshot(historyState.stack[historyState.index]);
+      historyState.restoring = false;
+      updateHistoryButtons();
+    }
+
+    function runRedo() {
+      if (historyState.index >= (historyState.stack.length - 1)) return;
+      historyState.index += 1;
+      historyState.restoring = true;
+      applySnapshot(historyState.stack[historyState.index]);
+      historyState.restoring = false;
+      updateHistoryButtons();
+    }
+
+    function updatePrintabilityDiagnostics() {
+      if (!printabilityList) return;
+      const warnings = [];
+      const wall = Number(inputs.wall?.value || 0);
+      const base = Number(inputs.base?.value || 0);
+      const taper = Number(inputs.taper?.value || 0);
+      const textureStrength = Number(inputs.texture_strength?.value || 0);
+      const height = Number(inputs.height?.value || 0);
+      const sections = Number(inputs.sections?.value || 0);
+      const drain = Number(inputs.drain_hole_diameter?.value || 0);
+      const includeBottom = !!inputs.include_bottom?.checked;
+
+      if (wall > 0 && wall < 1.2) warnings.push("Wall thickness below 1.2 mm can be fragile on a 0.4 mm nozzle.");
+      if (includeBottom && base > 0 && base < 1.2) warnings.push("Base thickness below 1.2 mm may lead to weak bottoms.");
+      if (Math.abs(taper) > 5) warnings.push("High taper can introduce difficult overhangs.");
+      if (wall > 0 && textureStrength > wall * 0.65) warnings.push("Texture strength is high relative to wall thickness.");
+      if (wall > 0 && (height / wall) > 70) warnings.push("Tall/slender profile may wobble during print.");
+      if (sections > 220) warnings.push("Very high section count increases slicer complexity.");
+      if (includeBottom && drain > 0 && drain < 1.2) warnings.push("Drain hole is very small and may close during printing.");
+
+      if (!warnings.length) {
+        printabilityList.innerHTML = "<li>No obvious printability risks detected.</li>";
+        return;
+      }
+      printabilityList.innerHTML = warnings.map((item) => `<li>${item}</li>`).join("");
+    }
 
     console.log("Form loaded:", form ? "✓" : "✗");
     console.log("Canvas loaded:", canvas ? "✓" : "✗");
@@ -5450,6 +5725,29 @@
 
       const knownValues = new Set(MATERIAL_STYLE_GROUPS.flatMap((group) => group.options.map(([value]) => value)));
       select.value = knownValues.has(current) ? current : "concrete";
+
+      if (materialThumbs) {
+        const flatOptions = MATERIAL_STYLE_GROUPS.flatMap((group) => group.options);
+        materialThumbs.innerHTML = flatOptions.map(([value, key, label]) => {
+          const palette = MATERIAL_SWATCHES[value] || ["#dbe3ef", "#9caec3"];
+          return (
+            `<button type="button" class="material-thumb" data-material="${value}" aria-selected="false">`
+            + `<span class="material-thumb-swatch" style="background: linear-gradient(120deg, ${palette[0]} 0%, ${palette[1]} 100%);"></span>`
+            + `<span class="material-thumb-label" data-i18n="${key}">${label}</span>`
+            + `</button>`
+          );
+        }).join("");
+      }
+
+      syncMaterialThumbSelection();
+    }
+
+    function syncMaterialThumbSelection() {
+      if (!materialThumbs || !inputs.material_type) return;
+      const selected = inputs.material_type.value;
+      for (const thumb of materialThumbs.querySelectorAll(".material-thumb")) {
+        thumb.setAttribute("aria-selected", thumb.dataset.material === selected ? "true" : "false");
+      }
     }
 
     function shapeRadiusFactor(theta, shape) {
@@ -5651,6 +5949,70 @@
       imageDisplacementState.width = 0;
       imageDisplacementState.height = 0;
       imageDisplacementState.texture = null;
+      imageDisplacementState.originalData = null;
+      imageDisplacementState.originalWidth = 0;
+      imageDisplacementState.originalHeight = 0;
+      if (textureEditor) textureEditor.hidden = true;
+    }
+
+    function applyTextureEditorToLoadedImage() {
+      if (!imageDisplacementState.originalData || !imageDisplacementState.originalWidth || !imageDisplacementState.originalHeight) {
+        return;
+      }
+
+      const width = imageDisplacementState.originalWidth;
+      const height = imageDisplacementState.originalHeight;
+      const source = imageDisplacementState.originalData;
+      const data = new Uint8ClampedArray(source);
+      const brightness = Number(textureBrightnessInput?.value || 0);
+      const contrast = Number(textureContrastInput?.value || 0);
+      const invert = !!textureInvertInput?.checked;
+      const contrastFactor = (259 * (contrast + 255)) / (255 * (259 - contrast));
+
+      for (let i = 0; i < data.length; i += 4) {
+        let v = data[i];
+        v = v + brightness;
+        v = contrastFactor * (v - 128) + 128;
+        if (invert) v = 255 - v;
+        v = Math.max(0, Math.min(255, v));
+        data[i] = v;
+        data[i + 1] = v;
+        data[i + 2] = v;
+      }
+
+      const workCanvas = document.createElement("canvas");
+      workCanvas.width = width;
+      workCanvas.height = height;
+      const workCtx = workCanvas.getContext("2d", { willReadFrequently: true });
+      const imageData = new ImageData(data, width, height);
+      workCtx.putImageData(imageData, 0, 0);
+
+      const blurPx = Number(textureBlurInput?.value || 0);
+      if (blurPx > 0) {
+        const blurred = document.createElement("canvas");
+        blurred.width = width;
+        blurred.height = height;
+        const bctx = blurred.getContext("2d");
+        bctx.filter = `blur(${blurPx}px)`;
+        bctx.drawImage(workCanvas, 0, 0);
+        workCtx.clearRect(0, 0, width, height);
+        workCtx.drawImage(blurred, 0, 0);
+      }
+
+      const finalData = workCtx.getImageData(0, 0, width, height);
+      imageDisplacementState.data = finalData.data;
+      imageDisplacementState.width = width;
+      imageDisplacementState.height = height;
+      imageDisplacementState.texture = new THREE.CanvasTexture(workCanvas);
+      imageDisplacementState.texture.wrapS = imageDisplacementState.texture.wrapT = THREE.RepeatWrapping;
+
+      if (texturePreviewCanvas) {
+        const pctx = texturePreviewCanvas.getContext("2d");
+        pctx.clearRect(0, 0, texturePreviewCanvas.width, texturePreviewCanvas.height);
+        pctx.drawImage(workCanvas, 0, 0, texturePreviewCanvas.width, texturePreviewCanvas.height);
+      }
+      if (textureEditor) textureEditor.hidden = false;
+      updatePreview();
     }
 
     function loadImageDisplacement(file) {
@@ -5677,14 +6039,16 @@
         const ctx = c.getContext("2d", { willReadFrequently: true });
         ctx.drawImage(img, 0, 0, width, height);
         const imageData = ctx.getImageData(0, 0, width, height);
-        imageDisplacementState.data = imageData.data;
-        imageDisplacementState.width = width;
-        imageDisplacementState.height = height;
-        imageDisplacementState.texture = new THREE.CanvasTexture(c);
-        imageDisplacementState.texture.wrapS = imageDisplacementState.texture.wrapT = THREE.RepeatWrapping;
+        imageDisplacementState.originalData = new Uint8ClampedArray(imageData.data);
+        imageDisplacementState.originalWidth = width;
+        imageDisplacementState.originalHeight = height;
+        if (textureBrightnessInput) textureBrightnessInput.value = "0";
+        if (textureContrastInput) textureContrastInput.value = "0";
+        if (textureBlurInput) textureBlurInput.value = "0";
+        if (textureInvertInput) textureInvertInput.checked = false;
+        applyTextureEditorToLoadedImage();
         imageDisplacementState.loading = false;
         URL.revokeObjectURL(url);
-        updatePreview();
       };
       img.onerror = () => {
         imageDisplacementState.loading = false;
@@ -6628,6 +6992,7 @@
           return;
         }
         syncMiddleInboundZBounds();
+        updatePrintabilityDiagnostics();
         previewError.textContent = "";
         if (!renderer) {
           console.log("Initializing preview...");
@@ -6692,8 +7057,26 @@
     for (const element of Object.values(inputs)) {
       if (element) {
         element.addEventListener("input", updatePreview);
-        element.addEventListener("change", updatePreview);
+        element.addEventListener("change", () => {
+          syncMaterialThumbSelection();
+          updatePrintabilityDiagnostics();
+          pushHistorySnapshot();
+          updatePreview();
+        });
       }
+    }
+
+    if (materialThumbs && inputs.material_type) {
+      materialThumbs.addEventListener("click", (event) => {
+        const thumb = event.target.closest(".material-thumb");
+        if (!thumb) return;
+        const value = thumb.dataset.material;
+        if (!value) return;
+        inputs.material_type.value = value;
+        syncMaterialThumbSelection();
+        pushHistorySnapshot();
+        updatePreview();
+      });
     }
 
     if (inputs.shape_type) {
@@ -6710,6 +7093,17 @@
       textureImageInput.addEventListener("change", (event) => {
         const file = event.target.files?.[0] || null;
         loadImageDisplacement(file);
+        pushHistorySnapshot();
+      });
+    }
+
+    for (const editorControl of [textureBrightnessInput, textureContrastInput, textureBlurInput, textureInvertInput]) {
+      if (!editorControl) continue;
+      editorControl.addEventListener("input", () => {
+        applyTextureEditorToLoadedImage();
+      });
+      editorControl.addEventListener("change", () => {
+        pushHistorySnapshot();
       });
     }
 
@@ -6720,6 +7114,8 @@
 
     populateMaterialStyleOptions();
     populateLanguageOptions();
+    updatePrintabilityDiagnostics();
+    pushHistorySnapshot();
 
     if (languageSelect) {
       languageSelect.value = getLanguage();
@@ -6754,6 +7150,22 @@
         }
       });
     }
+
+    if (undoButton) undoButton.addEventListener("click", runUndo);
+    if (redoButton) redoButton.addEventListener("click", runRedo);
+
+    document.addEventListener("keydown", (event) => {
+      const key = event.key.toLowerCase();
+      const mod = event.ctrlKey || event.metaKey;
+      if (!mod) return;
+      if (key === "z" && !event.shiftKey) {
+        event.preventDefault();
+        runUndo();
+      } else if (key === "y" || (key === "z" && event.shiftKey)) {
+        event.preventDefault();
+        runRedo();
+      }
+    });
 
     window.addEventListener("resize", onWindowResize);
     applyLanguage(getLanguage());
