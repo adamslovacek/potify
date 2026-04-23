@@ -190,8 +190,28 @@
       letter-spacing: 0.04em;
       text-transform: uppercase;
     }
+    .language-flag {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 1.8rem;
+      height: 1.8rem;
+      font-size: 1.15rem;
+      line-height: 1;
+    }
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
     .language-control select {
-      min-width: 112px;
+      min-width: 126px;
       height: 36px;
       border-radius: 10px;
       padding: 6px 10px;
@@ -379,9 +399,12 @@
       </div>
       <div class="header-actions">
         <div class="language-control">
-          <label for="language-select" data-i18n="languageLabel">Language</label>
+          <label for="language-select">
+            <span id="language-flag" class="language-flag" aria-hidden="true">🇬🇧</span>
+            <span class="sr-only" data-i18n="languageLabel">Language</span>
+          </label>
           <select id="language-select" aria-label="Language">
-            <option value="en">English</option>
+            <option value="en">🇬🇧 English</option>
           </select>
         </div>
         <div class="preset-control">
@@ -695,6 +718,7 @@
     const presetSelect = document.getElementById("preset-select");
     const applyPresetButton = document.getElementById("apply-preset-btn");
     const languageSelect = document.getElementById("language-select");
+    const languageFlag = document.getElementById("language-flag");
     const shapeControls = Array.from(document.querySelectorAll(".shape-control[data-shapes]"));
 
     const imageDisplacementState = {
@@ -820,6 +844,55 @@
       { code: "uk", label: "Українська" },
       { code: "zh", label: "中文" },
     ];
+
+    const LANGUAGE_FLAGS = {
+      en: "🇬🇧",
+      sq: "🇦🇱",
+      be: "🇧🇾",
+      bs: "🇧🇦",
+      bg: "🇧🇬",
+      cs: "🇨🇿",
+      da: "🇩🇰",
+      de: "🇩🇪",
+      et: "🇪🇪",
+      ga: "🇮🇪",
+      el: "🇬🇷",
+      es: "🇪🇸",
+      fr: "🇫🇷",
+      hr: "🇭🇷",
+      is: "🇮🇸",
+      it: "🇮🇹",
+      ja: "🇯🇵",
+      lb: "🇱🇺",
+      lt: "🇱🇹",
+      lv: "🇱🇻",
+      hu: "🇭🇺",
+      mk: "🇲🇰",
+      mt: "🇲🇹",
+      nl: "🇳🇱",
+      no: "🇳🇴",
+      pl: "🇵🇱",
+      pt: "🇵🇹",
+      ro: "🇷🇴",
+      ru: "🇷🇺",
+      sk: "🇸🇰",
+      sl: "🇸🇮",
+      sr: "🇷🇸",
+      fi: "🇫🇮",
+      sv: "🇸🇪",
+      tr: "🇹🇷",
+      uk: "🇺🇦",
+      zh: "🇨🇳",
+    };
+
+    function getLanguageFlag(code) {
+      return LANGUAGE_FLAGS[code] || "🌐";
+    }
+
+    function updateLanguageFlag(code) {
+      if (!languageFlag) return;
+      languageFlag.textContent = getLanguageFlag(code);
+    }
 
     const I18N_KEYS = [
       "title", "subtitle", "languageLabel", "presetPlaceholder", "applyPreset",
@@ -4780,9 +4853,10 @@
       if (!languageSelect) return;
       const current = localStorage.getItem("potify_lang") || languageSelect.value || "en";
       languageSelect.innerHTML = LANGUAGE_OPTIONS.map((language) => (
-        `<option value="${language.code}">${language.label}</option>`
+        `<option value="${language.code}">${getLanguageFlag(language.code)} ${language.label}</option>`
       )).join("");
       languageSelect.value = LANGUAGE_OPTIONS.some((language) => language.code === current) ? current : "en";
+      updateLanguageFlag(languageSelect.value);
     }
 
     function getLanguage() {
@@ -4803,6 +4877,7 @@
       }
       if (languageSelect) {
         languageSelect.setAttribute("aria-label", dict.ariaLanguage || fallback.ariaLanguage);
+        updateLanguageFlag(lang);
       }
       localStorage.setItem("potify_lang", lang);
     }
