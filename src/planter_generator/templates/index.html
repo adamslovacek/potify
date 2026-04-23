@@ -426,6 +426,20 @@
       padding: 6px 7px;
       min-width: 70px;
     }
+    .preview-bed-select {
+      min-height: 30px;
+      min-width: 220px;
+      max-width: 320px;
+      border-radius: 9px;
+      border: 1px solid #c6d3e3;
+      background: #ffffff;
+      color: #253649;
+      font-size: 0.73rem;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+      box-shadow: none;
+      padding: 6px 8px;
+    }
     #preview-canvas {
       width: 100%;
       height: 100%;
@@ -733,6 +747,42 @@
                   <option value="cm">cm</option>
                   <option value="in">in</option>
                 </select>
+                <select id="printer-bed-select" class="preview-bed-select" aria-label="Printer bed preset">
+                  <option value="none" selected>No bed</option>
+                  <optgroup label="Bambu Lab">
+                    <option value="bambu-a1-mini">A1 mini 180 x 180</option>
+                    <option value="bambu-a1">A1 256 x 256</option>
+                    <option value="bambu-p1-x1">P1P / P1S / X1 / X1C / X1E 256 x 256</option>
+                    <option value="bambu-h2d">H2D 350 x 320</option>
+                  </optgroup>
+                  <optgroup label="Ender">
+                    <option value="ender-3-family">Ender 3 / Pro / V2 / Neo / V3 SE / V3 KE 220 x 220</option>
+                    <option value="ender-5-family">Ender 5 / Ender 5 S1 220 x 220</option>
+                    <option value="ender-6">Ender 6 250 x 250</option>
+                    <option value="ender-7">Ender 7 250 x 250</option>
+                    <option value="ender-3-max">Ender 3 Max / Max Neo 300 x 300</option>
+                    <option value="ender-3-v3-plus">Ender 3 V3 Plus 300 x 300</option>
+                    <option value="ender-5-plus">Ender 5 Plus 350 x 350</option>
+                  </optgroup>
+                  <optgroup label="Prusa">
+                    <option value="prusa-mini">MINI / MINI+ 180 x 180</option>
+                    <option value="prusa-mk-family">MK3S+ / MK4 / MK4S 250 x 210</option>
+                    <option value="prusa-core-one">CORE One 250 x 220</option>
+                    <option value="prusa-xl">XL 360 x 360</option>
+                  </optgroup>
+                  <optgroup label="Creality">
+                    <option value="creality-k1">K1 / K1C 220 x 220</option>
+                    <option value="creality-k1-max">K1 Max 300 x 300</option>
+                    <option value="creality-k2-plus">K2 Plus 350 x 350</option>
+                    <option value="creality-cr6-se">CR-6 SE 235 x 235</option>
+                    <option value="creality-cr10-family">CR-10 / CR-10 Smart / Smart Pro 300 x 300</option>
+                  </optgroup>
+                  <optgroup label="Elegoo">
+                    <option value="elegoo-neptune-standard">Neptune 3 / 3 Pro / 4 / 4 Pro 225 x 225</option>
+                    <option value="elegoo-neptune-plus">Neptune 3 Plus / 4 Plus 320 x 320</option>
+                    <option value="elegoo-neptune-max">Neptune 3 Max / 4 Max 420 x 420</option>
+                  </optgroup>
+                </select>
               </div>
               <div class="preview-toolbar-group">
                 <button type="button" class="preview-tool-btn view-btn" data-view="front">Front</button>
@@ -1038,6 +1088,7 @@
     const export3mfStatus = document.getElementById("export-3mf-status");
     const bboxToggleButton = document.getElementById("bbox-toggle-btn");
     const axisUnitSelect = document.getElementById("axis-unit-select");
+    const printerBedSelect = document.getElementById("printer-bed-select");
     const viewButtons = Array.from(document.querySelectorAll(".view-btn[data-view]"));
     const materialThumbs = document.getElementById("material-thumbs");
     const languageSelect = document.getElementById("language-select");
@@ -1066,6 +1117,34 @@
     const previewState = {
       showBoundingBox: true,
       axisUnit: "mm",
+      printerBed: "none",
+    };
+
+    const PRINTER_BED_PRESETS = {
+      none: null,
+      "bambu-a1-mini": { label: "Bambu Lab A1 mini", width: 180, depth: 180, brand: "Bambu Lab" },
+      "bambu-a1": { label: "Bambu Lab A1", width: 256, depth: 256, brand: "Bambu Lab" },
+      "bambu-p1-x1": { label: "Bambu Lab P1 / X1 series", width: 256, depth: 256, brand: "Bambu Lab" },
+      "bambu-h2d": { label: "Bambu Lab H2D", width: 350, depth: 320, brand: "Bambu Lab" },
+      "ender-3-family": { label: "Ender 3 family", width: 220, depth: 220, brand: "Ender" },
+      "ender-5-family": { label: "Ender 5 family", width: 220, depth: 220, brand: "Ender" },
+      "ender-6": { label: "Ender 6", width: 250, depth: 250, brand: "Ender" },
+      "ender-7": { label: "Ender 7", width: 250, depth: 250, brand: "Ender" },
+      "ender-3-max": { label: "Ender 3 Max family", width: 300, depth: 300, brand: "Ender" },
+      "ender-3-v3-plus": { label: "Ender 3 V3 Plus", width: 300, depth: 300, brand: "Ender" },
+      "ender-5-plus": { label: "Ender 5 Plus", width: 350, depth: 350, brand: "Ender" },
+      "prusa-mini": { label: "Prusa MINI+", width: 180, depth: 180, brand: "Prusa" },
+      "prusa-mk-family": { label: "Prusa MK family", width: 250, depth: 210, brand: "Prusa" },
+      "prusa-core-one": { label: "Prusa CORE One", width: 250, depth: 220, brand: "Prusa" },
+      "prusa-xl": { label: "Prusa XL", width: 360, depth: 360, brand: "Prusa" },
+      "creality-k1": { label: "Creality K1 / K1C", width: 220, depth: 220, brand: "Creality" },
+      "creality-k1-max": { label: "Creality K1 Max", width: 300, depth: 300, brand: "Creality" },
+      "creality-k2-plus": { label: "Creality K2 Plus", width: 350, depth: 350, brand: "Creality" },
+      "creality-cr6-se": { label: "Creality CR-6 SE", width: 235, depth: 235, brand: "Creality" },
+      "creality-cr10-family": { label: "Creality CR-10 family", width: 300, depth: 300, brand: "Creality" },
+      "elegoo-neptune-standard": { label: "Elegoo Neptune standard", width: 225, depth: 225, brand: "Elegoo" },
+      "elegoo-neptune-plus": { label: "Elegoo Neptune Plus", width: 320, depth: 320, brand: "Elegoo" },
+      "elegoo-neptune-max": { label: "Elegoo Neptune Max", width: 420, depth: 420, brand: "Elegoo" },
     };
     
     if (!canvas) {
@@ -5747,6 +5826,7 @@
     let ambient = null;
     let axisLabelSprites = [];
     let boundingBoxHelper = null;
+    let printerBedVisual = null;
     let lastModelBox = null;
     let hasAutoFramedModel = false;
     const AXIS_HELPER_LENGTH = 240;
@@ -6291,6 +6371,22 @@
       boundingBoxHelper = null;
     }
 
+    function clearPrinterBedVisual() {
+      if (!scene || !printerBedVisual) return;
+      scene.remove(printerBedVisual);
+      printerBedVisual.traverse((node) => {
+        if (node.geometry?.dispose) node.geometry.dispose();
+        if (node.material) {
+          if (Array.isArray(node.material)) {
+            for (const material of node.material) material?.dispose?.();
+          } else if (node.material.dispose) {
+            node.material.dispose();
+          }
+        }
+      });
+      printerBedVisual = null;
+    }
+
     function updateBoundingBoxHelper(box) {
       clearBoundingBoxHelper();
       if (!scene || !box || box.isEmpty() || !previewState.showBoundingBox) return;
@@ -6307,6 +6403,97 @@
       if (lastModelBox && !lastModelBox.isEmpty()) return lastModelBox.clone();
       if (modelMesh) return new THREE.Box3().setFromObject(modelMesh);
       return null;
+    }
+
+    function selectedPrinterBedPreset() {
+      return PRINTER_BED_PRESETS[previewState.printerBed] || null;
+    }
+
+    function updatePrinterBedVisual(modelBox = null) {
+      clearPrinterBedVisual();
+      const preset = selectedPrinterBedPreset();
+      if (!scene || !preset) return;
+
+      const width = preset.width;
+      const depth = preset.depth;
+      const halfWidth = width / 2;
+      const halfDepth = depth / 2;
+      const size = modelBox && !modelBox.isEmpty() ? modelBox.getSize(new THREE.Vector3()) : null;
+      const exceedsBed = !!size && (size.x > width || size.y > depth);
+
+      const group = new THREE.Group();
+      const plane = new THREE.Mesh(
+        new THREE.PlaneGeometry(width, depth),
+        new THREE.MeshBasicMaterial({
+          color: exceedsBed ? 0xf8d3ca : 0xdbe9f6,
+          transparent: true,
+          opacity: 0.45,
+          side: THREE.DoubleSide,
+          depthWrite: false,
+        }),
+      );
+      plane.position.z = -0.12;
+      group.add(plane);
+
+      const outline = new THREE.Line(
+        new THREE.BufferGeometry().setFromPoints([
+          new THREE.Vector3(-halfWidth, -halfDepth, -0.06),
+          new THREE.Vector3(halfWidth, -halfDepth, -0.06),
+          new THREE.Vector3(halfWidth, halfDepth, -0.06),
+          new THREE.Vector3(-halfWidth, halfDepth, -0.06),
+          new THREE.Vector3(-halfWidth, -halfDepth, -0.06),
+        ]),
+        new THREE.LineBasicMaterial({ color: exceedsBed ? 0xc2410c : 0x3b6b97, transparent: true, opacity: 0.95 }),
+      );
+      group.add(outline);
+
+      const centerLineX = new THREE.Line(
+        new THREE.BufferGeometry().setFromPoints([
+          new THREE.Vector3(-halfWidth, 0, -0.05),
+          new THREE.Vector3(halfWidth, 0, -0.05),
+        ]),
+        new THREE.LineBasicMaterial({ color: 0x7c93ac, transparent: true, opacity: 0.45 }),
+      );
+      const centerLineY = new THREE.Line(
+        new THREE.BufferGeometry().setFromPoints([
+          new THREE.Vector3(0, -halfDepth, -0.05),
+          new THREE.Vector3(0, halfDepth, -0.05),
+        ]),
+        new THREE.LineBasicMaterial({ color: 0x7c93ac, transparent: true, opacity: 0.45 }),
+      );
+      group.add(centerLineX);
+      group.add(centerLineY);
+
+      const labelCanvas = document.createElement("canvas");
+      labelCanvas.width = 512;
+      labelCanvas.height = 96;
+      const labelContext = labelCanvas.getContext("2d");
+      labelContext.clearRect(0, 0, labelCanvas.width, labelCanvas.height);
+      labelContext.fillStyle = "rgba(255,255,255,0.92)";
+      labelContext.fillRect(12, 12, labelCanvas.width - 24, labelCanvas.height - 24);
+      labelContext.strokeStyle = exceedsBed ? "rgba(194,65,12,0.55)" : "rgba(59,107,151,0.45)";
+      labelContext.lineWidth = 2;
+      labelContext.strokeRect(12, 12, labelCanvas.width - 24, labelCanvas.height - 24);
+      labelContext.fillStyle = exceedsBed ? "#9a3412" : "#244261";
+      labelContext.font = "700 28px 'Segoe UI', Arial, sans-serif";
+      labelContext.textAlign = "center";
+      labelContext.textBaseline = "middle";
+      labelContext.fillText(`${preset.label} ${width} x ${depth} mm`, labelCanvas.width / 2, labelCanvas.height / 2);
+
+      const labelTexture = new THREE.CanvasTexture(labelCanvas);
+      labelTexture.colorSpace = THREE.SRGBColorSpace;
+      const labelSprite = new THREE.Sprite(new THREE.SpriteMaterial({
+        map: labelTexture,
+        transparent: true,
+        depthTest: false,
+        depthWrite: false,
+      }));
+      labelSprite.scale.set(Math.max(96, width * 0.7), 18, 1);
+      labelSprite.position.set(0, halfDepth + 22, 0.8);
+      group.add(labelSprite);
+
+      printerBedVisual = group;
+      scene.add(group);
     }
 
     function setQuickView(viewName) {
@@ -7101,6 +7288,8 @@
       coarseGrid.material.transparent = true;
       coarseGrid.material.opacity = 0.9;
       scene.add(coarseGrid);
+
+      updatePrinterBedVisual();
     }
 
     function initRenderer() {
@@ -7165,6 +7354,8 @@
         modelMesh = new THREE.Mesh(geometry, material);
         scene.add(modelMesh);
         const box = new THREE.Box3().setFromObject(modelMesh);
+        lastModelBox = box.clone();
+        updatePrinterBedVisual(box);
         updateAxisLabelsForBox(box);
         frameCameraToModel(box);
         renderScene();
@@ -7354,6 +7545,13 @@
       axisUnitSelect.addEventListener("change", () => {
         previewState.axisUnit = axisUnitSelect.value || "mm";
         updateAxisLabelsForBox(activeModelBox());
+        renderScene();
+      });
+    }
+    if (printerBedSelect) {
+      printerBedSelect.addEventListener("change", () => {
+        previewState.printerBed = printerBedSelect.value || "none";
+        updatePrinterBedVisual(activeModelBox());
         renderScene();
       });
     }
