@@ -969,16 +969,211 @@
       zh: "cn",
     };
 
-    function flagSvgUrl(countryCode) {
-      const normalized = (countryCode || "").toUpperCase();
-      if (!/^[A-Z]{2}$/.test(normalized)) {
-        return "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 16'%3E%3Crect width='24' height='16' rx='3' fill='%23dbe7f5'/%3E%3Ccircle cx='12' cy='8' r='4.2' fill='%2385a3c7'/%3E%3C/svg%3E";
+    function svgDataUrl(markup) {
+      return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(markup)}`;
+    }
+
+    function flagSvg(content) {
+      return svgDataUrl(
+        `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 16">`
+        + `<defs><clipPath id="r"><rect width="24" height="16" rx="2.2" ry="2.2"/></clipPath></defs>`
+        + `<g clip-path="url(#r)">${content}</g>`
+        + `<rect x="0.5" y="0.5" width="23" height="15" rx="1.7" ry="1.7" fill="none" stroke="rgba(15,23,42,0.14)"/>`
+        + `</svg>`
+      );
+    }
+
+    function rect(x, y, width, height, fill) {
+      return `<rect x="${x}" y="${y}" width="${width}" height="${height}" fill="${fill}"/>`;
+    }
+
+    function circle(cx, cy, radius, fill) {
+      return `<circle cx="${cx}" cy="${cy}" r="${radius}" fill="${fill}"/>`;
+    }
+
+    function polygon(points, fill) {
+      return `<polygon points="${points}" fill="${fill}"/>`;
+    }
+
+    function horizontalStripes(colors) {
+      const stripeHeight = 16 / colors.length;
+      return colors.map((fill, index) => rect(0, stripeHeight * index, 24, stripeHeight + 0.2, fill)).join("");
+    }
+
+    function verticalStripes(colors) {
+      const stripeWidth = 24 / colors.length;
+      return colors.map((fill, index) => rect(stripeWidth * index, 0, stripeWidth + 0.2, 16, fill)).join("");
+    }
+
+    function nordicCross(background, outerCross, innerCross) {
+      return [
+        rect(0, 0, 24, 16, background),
+        rect(6, 0, 5, 16, outerCross),
+        rect(0, 5.5, 24, 5, outerCross),
+        rect(7, 0, 3, 16, innerCross),
+        rect(0, 6.5, 24, 3, innerCross),
+      ].join("");
+    }
+
+    function fivePointStar(cx, cy, outerRadius, innerRadius, fill) {
+      const points = [];
+      for (let index = 0; index < 10; index += 1) {
+        const angle = (-Math.PI / 2) + ((Math.PI / 5) * index);
+        const radius = index % 2 === 0 ? outerRadius : innerRadius;
+        points.push(`${cx + (Math.cos(angle) * radius)},${cy + (Math.sin(angle) * radius)}`);
       }
-      const codePoints = normalized
-        .split("")
-        .map((char) => (0x1F1E6 + (char.charCodeAt(0) - 65)).toString(16))
-        .join("-");
-      return `https://cdn.jsdelivr.net/npm/twemoji@14.0.2/assets/svg/${codePoints}.svg`;
+      return polygon(points.join(" "), fill);
+    }
+
+    function unionJack() {
+      return [
+        rect(0, 0, 24, 16, "#0a3d91"),
+        polygon("0,0 3.2,0 24,12.4 24,16 20.8,16 0,3.6", "#ffffff"),
+        polygon("24,0 20.8,0 0,12.4 0,16 3.2,16 24,3.6", "#ffffff"),
+        polygon("0,0 1.8,0 24,13.5 24,16 22.2,16 0,2.5", "#cf142b"),
+        polygon("24,0 22.2,0 0,13.5 0,16 1.8,16 24,2.5", "#cf142b"),
+        rect(9, 0, 6, 16, "#ffffff"),
+        rect(0, 5, 24, 6, "#ffffff"),
+        rect(10.2, 0, 3.6, 16, "#cf142b"),
+        rect(0, 6.2, 24, 3.6, "#cf142b"),
+      ].join("");
+    }
+
+    function greeceFlag() {
+      return [
+        horizontalStripes(["#0d5eaf", "#ffffff", "#0d5eaf", "#ffffff", "#0d5eaf", "#ffffff", "#0d5eaf", "#ffffff", "#0d5eaf"]),
+        rect(0, 0, 10, 9, "#0d5eaf"),
+        rect(4, 0, 2, 9, "#ffffff"),
+        rect(0, 3.5, 10, 2, "#ffffff"),
+      ].join("");
+    }
+
+    function czechFlag() {
+      return [
+        rect(0, 0, 24, 8, "#ffffff"),
+        rect(0, 8, 24, 8, "#d7141a"),
+        polygon("0,0 10,8 0,16", "#11457e"),
+      ].join("");
+    }
+
+    function turkeyFlag() {
+      return [
+        rect(0, 0, 24, 16, "#e30a17"),
+        circle(9, 8, 4.2, "#ffffff"),
+        circle(10.2, 8, 3.3, "#e30a17"),
+        fivePointStar(14.7, 8, 2.1, 0.9, "#ffffff"),
+      ].join("");
+    }
+
+    function portugalFlag() {
+      return [
+        rect(0, 0, 10, 16, "#046a38"),
+        rect(10, 0, 14, 16, "#da291c"),
+        circle(10, 8, 3.1, "#f8c300"),
+        circle(10, 8, 1.6, "#ffffff"),
+      ].join("");
+    }
+
+    function chinaFlag() {
+      return [
+        rect(0, 0, 24, 16, "#de2910"),
+        fivePointStar(5.2, 4.4, 2.4, 1.0, "#ffde00"),
+        fivePointStar(9.3, 2.6, 0.9, 0.35, "#ffde00"),
+        fivePointStar(10.8, 5.0, 0.9, 0.35, "#ffde00"),
+        fivePointStar(10.1, 7.9, 0.9, 0.35, "#ffde00"),
+        fivePointStar(8.0, 10.0, 0.9, 0.35, "#ffde00"),
+      ].join("");
+    }
+
+    function japanFlag() {
+      return [
+        rect(0, 0, 24, 16, "#ffffff"),
+        circle(12, 8, 4.1, "#bc002d"),
+      ].join("");
+    }
+
+    function bosniaFlag() {
+      return [
+        rect(0, 0, 24, 16, "#002f87"),
+        polygon("9,0 18,0 10.5,16 1.5,16", "#fcd116"),
+        circle(11.2, 1.9, 1.0, "#ffffff"),
+        circle(9.6, 4.4, 1.0, "#ffffff"),
+        circle(8.0, 6.9, 1.0, "#ffffff"),
+        circle(6.4, 9.4, 1.0, "#ffffff"),
+        circle(4.8, 11.9, 1.0, "#ffffff"),
+      ].join("");
+    }
+
+    function albaniaFlag() {
+      return [
+        rect(0, 0, 24, 16, "#da291c"),
+        polygon("8,5 10.2,6.4 12,5.3 13.8,6.4 16,5 15.2,8 16,11 13.7,9.8 12,11 10.3,9.8 8,11 8.8,8", "#111111"),
+      ].join("");
+    }
+
+    function belarusFlag() {
+      return [
+        rect(0, 0, 4, 16, "#ffffff"),
+        rect(4, 0, 20, 10.5, "#c8313e"),
+        rect(4, 10.5, 20, 5.5, "#4aa657"),
+        polygon("0,0 4,1.5 0,3 4,4.5 0,6 4,7.5 0,9 4,10.5 0,12 4,13.5 0,15 4,16", "#c8313e"),
+      ].join("");
+    }
+
+    function macedoniaFlag() {
+      return [
+        rect(0, 0, 24, 16, "#d20000"),
+        polygon("12,8 24,0 24,3 15.5,8.7 24,14 24,16 12,9.8 0,16 0,14 8.5,8.7 0,3 0,0", "#fdd835"),
+        circle(12, 8, 3.1, "#fdd835"),
+      ].join("");
+    }
+
+    const LOCAL_FLAG_ART = {
+      al: flagSvg(albaniaFlag()),
+      ba: flagSvg(bosniaFlag()),
+      bg: flagSvg(horizontalStripes(["#ffffff", "#00966e", "#d62612"])),
+      by: flagSvg(belarusFlag()),
+      cn: flagSvg(chinaFlag()),
+      cz: flagSvg(czechFlag()),
+      de: flagSvg(horizontalStripes(["#000000", "#dd0000", "#ffce00"])),
+      dk: flagSvg(nordicCross("#c60c30", "#ffffff", "#ffffff")),
+      ee: flagSvg(horizontalStripes(["#4891d9", "#111111", "#ffffff"])),
+      es: flagSvg(horizontalStripes(["#aa151b", "#f1bf00", "#aa151b"])),
+      fi: flagSvg(nordicCross("#ffffff", "#003580", "#003580")),
+      fr: flagSvg(verticalStripes(["#0055a4", "#ffffff", "#ef4135"])),
+      gb: flagSvg(unionJack()),
+      gr: flagSvg(greeceFlag()),
+      hr: flagSvg(horizontalStripes(["#ff0000", "#ffffff", "#171796"])),
+      hu: flagSvg(horizontalStripes(["#cd2a3e", "#ffffff", "#436f4d"])),
+      ie: flagSvg(verticalStripes(["#169b62", "#ffffff", "#ff883e"])),
+      is: flagSvg(nordicCross("#02529c", "#ffffff", "#dc1e35")),
+      it: flagSvg(verticalStripes(["#009246", "#ffffff", "#ce2b37"])),
+      jp: flagSvg(japanFlag()),
+      lt: flagSvg(horizontalStripes(["#fdb913", "#006a44", "#c1272d"])),
+      lu: flagSvg(horizontalStripes(["#ef3340", "#ffffff", "#00a3e0"])),
+      lv: flagSvg(horizontalStripes(["#8c1c3d", "#ffffff", "#8c1c3d"])),
+      mk: flagSvg(macedoniaFlag()),
+      mt: flagSvg(verticalStripes(["#ffffff", "#cf142b"])),
+      nl: flagSvg(horizontalStripes(["#ae1c28", "#ffffff", "#21468b"])),
+      no: flagSvg(nordicCross("#ba0c2f", "#ffffff", "#00205b")),
+      pl: flagSvg(horizontalStripes(["#ffffff", "#dc143c"])),
+      pt: flagSvg(portugalFlag()),
+      ro: flagSvg(verticalStripes(["#002b7f", "#fcd116", "#ce1126"])),
+      rs: flagSvg(horizontalStripes(["#c6363c", "#0c4076", "#ffffff"])),
+      ru: flagSvg(horizontalStripes(["#ffffff", "#0039a6", "#d52b1e"])),
+      se: flagSvg(nordicCross("#006aa7", "#fecc00", "#fecc00")),
+      si: flagSvg(horizontalStripes(["#ffffff", "#005ce6", "#d50000"])),
+      sk: flagSvg(horizontalStripes(["#ffffff", "#0b4ea2", "#ee1c25"])),
+      tr: flagSvg(turkeyFlag()),
+      ua: flagSvg(horizontalStripes(["#0057b7", "#ffd700"])),
+    };
+
+    function flagSvgUrl(countryCode) {
+      const normalized = (countryCode || "").toLowerCase();
+      return LOCAL_FLAG_ART[normalized] || flagSvg(
+        rect(0, 0, 24, 16, "#dbe7f5")
+        + circle(12, 8, 4.2, "#85a3c7")
+      );
     }
 
     function getLanguageFlagUrl(code) {
