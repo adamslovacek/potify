@@ -300,6 +300,38 @@
       letter-spacing: 0.01em;
       box-shadow: 0 8px 16px rgba(35, 42, 57, 0.15);
     }
+    .export-action {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .export-status {
+      min-width: 26px;
+      height: 26px;
+      border-radius: 999px;
+      border: 1px solid #b8c9dc;
+      background: #eff5fc;
+      color: #39506a;
+      font-size: 0.68rem;
+      font-weight: 800;
+      letter-spacing: 0.02em;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 1;
+      user-select: none;
+      cursor: help;
+    }
+    .export-status[data-state="ok"] {
+      border-color: #a8d8b3;
+      background: #ecf9f0;
+      color: #1f6a31;
+    }
+    .export-status[data-state="warn"] {
+      border-color: #e7bea7;
+      background: #fff2eb;
+      color: #9a3a1f;
+    }
     button {
       border: none;
       border-radius: 16px;
@@ -410,28 +442,6 @@
       font-size: 0.88rem;
       min-height: 1.2em;
       margin-top: 8px;
-    }
-    .preview-diagnostics {
-      margin-top: 10px;
-      padding: 10px 12px;
-      border-radius: 14px;
-      border: 1px solid #d8e0eb;
-      background: #f8fbff;
-      color: #2c3d54;
-      font-size: 0.84rem;
-      line-height: 1.4;
-    }
-    .preview-diagnostics strong {
-      display: block;
-      margin-bottom: 4px;
-      font-size: 0.8rem;
-      letter-spacing: 0.05em;
-      text-transform: uppercase;
-      color: #516276;
-    }
-    .preview-diagnostics ul {
-      margin: 0;
-      padding-left: 18px;
     }
     .history-control {
       display: flex;
@@ -636,8 +646,14 @@
           </select>
           <button type="button" id="apply-preset-btn" class="button-secondary" data-i18n="applyPreset">Apply preset</button>
         </div>
-        <button type="submit" id="export-stl-btn" form="generator-form" formaction="/generate" formmethod="post" name="format" value="stl" data-i18n="exportStl">Export STL</button>
-        <button type="submit" id="export-3mf-btn" form="generator-form" formaction="/generate" formmethod="post" name="format" value="3mf" data-i18n="export3mf">Export 3MF</button>
+        <div class="export-action">
+          <button type="submit" id="export-stl-btn" form="generator-form" formaction="/generate" formmethod="post" name="format" value="stl" data-i18n="exportStl">Export STL</button>
+          <span id="export-stl-status" class="export-status" data-state="ok" aria-hidden="true" title="No obvious printability risks detected.">OK</span>
+        </div>
+        <div class="export-action">
+          <button type="submit" id="export-3mf-btn" form="generator-form" formaction="/generate" formmethod="post" name="format" value="3mf" data-i18n="export3mf">Export 3MF</button>
+          <span id="export-3mf-status" class="export-status" data-state="ok" aria-hidden="true" title="No obvious printability risks detected.">OK</span>
+        </div>
         <button type="button" id="load-config-btn" class="button-secondary" data-i18n="loadJson">Load</button>
         <button type="submit" id="save-config-btn" form="generator-form" formaction="/save-config" formmethod="post" class="button-secondary" data-i18n="saveJson">Save</button>
         <input id="load-config-input" type="file" accept="application/json,.json" style="display:none">
@@ -655,10 +671,6 @@
             <canvas id="preview-canvas"></canvas>
           </div>
           <div id="preview-error" class="preview-error"></div>
-          <div id="printability-panel" class="preview-diagnostics">
-            <strong>Printability diagnostics</strong>
-            <ul id="printability-list"></ul>
-          </div>
         </aside>
 
         <form id="generator-form" method="post" action="/generate" class="panel menu-panel" enctype="multipart/form-data">
@@ -947,6 +959,10 @@
     const undoButton = document.getElementById("undo-btn");
     const redoButton = document.getElementById("redo-btn");
     const printabilityList = document.getElementById("printability-list");
+    const exportStlButton = document.getElementById("export-stl-btn");
+    const export3mfButton = document.getElementById("export-3mf-btn");
+    const exportStlStatus = document.getElementById("export-stl-status");
+    const export3mfStatus = document.getElementById("export-3mf-status");
     const materialThumbs = document.getElementById("material-thumbs");
     const languageSelect = document.getElementById("language-select");
     const languageButton = document.getElementById("language-button");
@@ -5581,7 +5597,6 @@
     }
 
     function updatePrintabilityDiagnostics() {
-      if (!printabilityList) return;
       const warnings = [];
       const wall = Number(inputs.wall?.value || 0);
       const base = Number(inputs.base?.value || 0);
@@ -5600,11 +5615,33 @@
       if (sections > 220) warnings.push("Very high section count increases slicer complexity.");
       if (includeBottom && drain > 0 && drain < 1.2) warnings.push("Drain hole is very small and may close during printing.");
 
-      if (!warnings.length) {
-        printabilityList.innerHTML = "<li>No obvious printability risks detected.</li>";
-        return;
+      const diagnosticsText = warnings.length
+        ? (`Printability warnings:\n- ${warnings.join("\n- ")}`)
+        : "No obvious printability risks detected.";
+
+      const statusState = warnings.length ? "warn" : "ok";
+      const statusText = warnings.length ? "X" : "OK";
+
+      for (const button of [exportStlButton, export3mfButton]) {
+        if (!button) continue;
+        button.title = diagnosticsText;
+        button.setAttribute("aria-label", `${button.textContent?.trim() || "Export"}. ${diagnosticsText.replace(/\n/g, " ")}`);
       }
-      printabilityList.innerHTML = warnings.map((item) => `<li>${item}</li>`).join("");
+
+      for (const statusEl of [exportStlStatus, export3mfStatus]) {
+        if (!statusEl) continue;
+        statusEl.dataset.state = statusState;
+        statusEl.textContent = statusText;
+        statusEl.title = diagnosticsText;
+      }
+
+      if (printabilityList) {
+        if (!warnings.length) {
+          printabilityList.innerHTML = "<li>No obvious printability risks detected.</li>";
+          return;
+        }
+        printabilityList.innerHTML = warnings.map((item) => `<li>${item}</li>`).join("");
+      }
     }
 
     console.log("Form loaded:", form ? "✓" : "✗");
