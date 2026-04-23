@@ -737,7 +737,7 @@
               <div class="menu-group-body">
                 <label>
                   <span data-i18n="materialStyleLabel">Material style</span>
-                  <select name="material_type" required>
+                  <select name="material_type" data-initial-value="{{ values.material_type or 'concrete' }}" required>
                     <optgroup label="Stone & Concrete" data-i18n="stoneConcreteGroup">
                       <option value="concrete" data-i18n="lightConcreteOption">Light concrete</option>
                       <option value="dark-stone" data-i18n="darkStoneOption">Dark stone</option>
@@ -5183,7 +5183,13 @@
       document.documentElement.lang = lang;
       for (const node of document.querySelectorAll("[data-i18n]")) {
         const key = node.getAttribute("data-i18n");
-        if (key) node.textContent = dict[key] || fallback[key] || node.textContent;
+        if (!key) continue;
+        const translated = dict[key] || fallback[key] || node.textContent || node.label;
+        if (node.tagName === "OPTGROUP") {
+          node.label = translated;
+          continue;
+        }
+        node.textContent = translated;
       }
       if (presetSelect) {
         presetSelect.setAttribute("aria-label", dict.ariaPreset || fallback.ariaPreset);
@@ -5279,6 +5285,53 @@
     ];
     const inputs = Object.fromEntries(inputNames.map((name) => [name, form?.querySelector(`[name='${name}']`)]));
 
+    const MATERIAL_STYLE_GROUPS = [
+      {
+        labelKey: "stoneConcreteGroup",
+        label: "Stone & Concrete",
+        options: [
+          ["concrete", "lightConcreteOption", "Light concrete"],
+          ["dark-stone", "darkStoneOption", "Dark stone"],
+          ["sandstone", "sandstoneOption", "Sandstone"],
+          ["slate", "slateFinishOption", "Slate finish"],
+          ["terrazzo", "terrazzo", "Terrazzo"],
+          ["basalt", "basaltOption", "Basalt"],
+          ["weathered-concrete", "weatheredConcreteOption", "Weathered concrete"],
+        ],
+      },
+      {
+        labelKey: "ceramicClayGroup",
+        label: "Ceramic & Clay",
+        options: [
+          ["glossy-ceramic", "glossyCeramicOption", "Glossy ceramic"],
+          ["pearl-glaze", "pearlGlazeOption", "Pearl glaze"],
+          ["porcelain-speckle", "porcelainSpeckleOption", "Porcelain speckle"],
+          ["terracotta", "terracottaOption", "Terracotta"],
+          ["raku", "rakuCrackleOption", "Raku crackle"],
+        ],
+      },
+      {
+        labelKey: "metalIndustrialGroup",
+        label: "Metal & Industrial",
+        options: [
+          ["brushed-metal", "brushedMetalOption", "Brushed metal"],
+          ["oxidized-copper", "oxidizedCopperOption", "Oxidized copper"],
+          ["worn-steel", "wornSteelOption", "Worn steel"],
+          ["matte-black", "matteBlackOption", "Matte black"],
+          ["charcoal", "charcoalOption", "Charcoal"],
+        ],
+      },
+      {
+        labelKey: "naturalCompositeGroup",
+        label: "Natural & Composite",
+        options: [
+          ["smooth-sand", "smoothSandOption", "Smooth sand"],
+          ["travertine", "travertineOption", "Travertine"],
+          ["micro-cement", "microCementOption", "Micro cement"],
+        ],
+      },
+    ];
+
     console.log("Form loaded:", form ? "✓" : "✗");
     console.log("Canvas loaded:", canvas ? "✓" : "✗");
     console.log("Input fields loaded:", Object.keys(inputs).filter(k => inputs[k]).length, "/", inputNames.length);
@@ -5301,6 +5354,7 @@
     let ambient = null;
     let axisLabelSprites = [];
     let hasAutoFramedModel = false;
+    const AXIS_HELPER_LENGTH = 240;
 
     function frameCameraToModel(box, force = false) {
       if (!camera || !controls || !box || box.isEmpty()) return;
@@ -5382,6 +5436,20 @@
         waveDepth: clamp(numberValue("shape_wave_depth"), 0.0, 0.95),
         waveCount: Math.max(2, Math.min(24, Math.floor(numberValue("shape_wave_count")))),
       };
+    }
+
+    function populateMaterialStyleOptions() {
+      const select = inputs.material_type;
+      if (!select) return;
+      const current = select.value || select.dataset.initialValue || "concrete";
+      select.innerHTML = MATERIAL_STYLE_GROUPS.map((group) => (
+        `<optgroup label="${group.label}" data-i18n="${group.labelKey}">`
+        + group.options.map(([value, key, label]) => (`<option value="${value}" data-i18n="${key}">${label}</option>`)).join("")
+        + `</optgroup>`
+      )).join("");
+
+      const knownValues = new Set(MATERIAL_STYLE_GROUPS.flatMap((group) => group.options.map(([value]) => value)));
+      select.value = knownValues.has(current) ? current : "concrete";
     }
 
     function shapeRadiusFactor(theta, shape) {
@@ -5637,13 +5705,7 @@
       ctx.closePath();
     }
 
-    function createAxisLabelSprite(letter, tintColor) {
-      const width = 320;
-      const height = 160;
-      const labelCanvas = document.createElement("canvas");
-      labelCanvas.width = width;
-      labelCanvas.height = height;
-      const ctx = labelCanvas.getContext("2d");
+    function paintAxisLabelCanvas(ctx, letter, detailText, tintColor, width, height) {
       ctx.clearRect(0, 0, width, height);
 
       ctx.shadowColor = "rgba(15, 23, 42, 0.16)";
@@ -5663,10 +5725,24 @@
       ctx.stroke();
 
       ctx.fillStyle = tintColor;
-      ctx.font = "700 50px 'Segoe UI', 'Helvetica Neue', Arial, sans-serif";
+      ctx.font = "700 46px 'Segoe UI', 'Helvetica Neue', Arial, sans-serif";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.fillText(letter, width / 2, height / 2);
+      ctx.fillText(letter, width / 2, 58);
+
+      ctx.fillStyle = "#334155";
+      ctx.font = "700 30px 'Segoe UI', 'Helvetica Neue', Arial, sans-serif";
+      ctx.fillText(detailText, width / 2, 110);
+    }
+
+    function createAxisLabelSprite(letter, tintColor, detailText = "-- mm") {
+      const width = 360;
+      const height = 180;
+      const labelCanvas = document.createElement("canvas");
+      labelCanvas.width = width;
+      labelCanvas.height = height;
+      const ctx = labelCanvas.getContext("2d");
+      paintAxisLabelCanvas(ctx, letter, detailText, tintColor, width, height);
 
       const tex = new THREE.CanvasTexture(labelCanvas);
       tex.colorSpace = THREE.SRGBColorSpace;
@@ -5679,27 +5755,68 @@
         depthWrite: false,
       });
       const sprite = new THREE.Sprite(mat);
-      sprite.scale.set(82, 41, 1);
-      sprite.userData.labelPixelWidth = 82;
-      sprite.userData.labelPixelHeight = 41;
+      sprite.scale.set(108, 54, 1);
+      sprite.userData.labelPixelWidth = 108;
+      sprite.userData.labelPixelHeight = 54;
+      sprite.userData.letter = letter;
+      sprite.userData.tintColor = tintColor;
+      sprite.userData.canvas = labelCanvas;
       return sprite;
     }
 
+    function updateAxisLabelSprite(sprite, detailText) {
+      if (!sprite) return;
+      const labelCanvas = sprite.userData.canvas;
+      const ctx = labelCanvas?.getContext("2d");
+      if (!ctx) return;
+      paintAxisLabelCanvas(
+        ctx,
+        sprite.userData.letter || "",
+        detailText,
+        sprite.userData.tintColor || "#334155",
+        labelCanvas.width,
+        labelCanvas.height,
+      );
+      if (sprite.material?.map) sprite.material.map.needsUpdate = true;
+    }
+
+    function formatDimensionLabel(value) {
+      if (!Number.isFinite(value)) return "-- mm";
+      const rounded = value >= 100 ? Math.round(value) : Math.round(value * 10) / 10;
+      return `${rounded} mm`;
+    }
+
+    function updateAxisLabelsForBox(box) {
+      if (!box || box.isEmpty() || axisLabelSprites.length !== 3) return;
+      const size = box.getSize(new THREE.Vector3());
+      const padding = Math.max(38, Math.min(90, Math.max(size.x, size.y, size.z) * 0.18));
+
+      updateAxisLabelSprite(axisLabelSprites[0], formatDimensionLabel(size.x));
+      axisLabelSprites[0].position.set(Math.max(AXIS_HELPER_LENGTH + 44, box.max.x + padding), 0, 0);
+
+      updateAxisLabelSprite(axisLabelSprites[1], formatDimensionLabel(size.y));
+      axisLabelSprites[1].position.set(0, Math.max(AXIS_HELPER_LENGTH + 44, box.max.y + padding), 0);
+
+      updateAxisLabelSprite(axisLabelSprites[2], formatDimensionLabel(size.z));
+      axisLabelSprites[2].position.set(0, 0, Math.max(AXIS_HELPER_LENGTH + 44, box.max.z + padding));
+
+      updateAxisLabelScale();
+    }
+
     function addAxisHelpers() {
-      const axisLength = 240;
-      const axes = new THREE.AxesHelper(axisLength);
+      const axes = new THREE.AxesHelper(AXIS_HELPER_LENGTH);
       scene.add(axes);
 
       const xLabel = createAxisLabelSprite("X", "#be123c");
-      xLabel.position.set(axisLength + 44, 0, 0);
+      xLabel.position.set(AXIS_HELPER_LENGTH + 44, 0, 0);
       scene.add(xLabel);
 
       const yLabel = createAxisLabelSprite("Y", "#15803d");
-      yLabel.position.set(0, axisLength + 44, 0);
+      yLabel.position.set(0, AXIS_HELPER_LENGTH + 44, 0);
       scene.add(yLabel);
 
       const zLabel = createAxisLabelSprite("Z", "#1d4ed8");
-      zLabel.position.set(0, 0, axisLength + 44);
+      zLabel.position.set(0, 0, AXIS_HELPER_LENGTH + 44);
       scene.add(zLabel);
 
       axisLabelSprites = [xLabel, yLabel, zLabel];
@@ -6495,6 +6612,7 @@
         modelMesh = new THREE.Mesh(geometry, material);
         scene.add(modelMesh);
         const box = new THREE.Box3().setFromObject(modelMesh);
+        updateAxisLabelsForBox(box);
         frameCameraToModel(box);
         renderScene();
       } catch (error) {
@@ -6600,6 +6718,7 @@
       presetSelect.addEventListener("change", applySelectedPreset);
     }
 
+    populateMaterialStyleOptions();
     populateLanguageOptions();
 
     if (languageSelect) {
