@@ -7582,17 +7582,13 @@
         const filamentArea = Math.PI * (filamentDia / 2) ** 2;
         const filamentWeight = (totalVolume * filamentDensity); // grams, rough
 
-        const stlEstimate = polyCount * 80; // bytes, rough
-        const imfEstimate = polyCount * 30; // compressed
+        const stlEstimate = polyCount * 50; // bytes, rough
+        const imfEstimate = polyCount * 20; // compressed
 
-        const layerHeight = 0.2;
-        const nozzleDia = 0.4;
-        const printSpeed = 60; // mm/s
-        const volumePerSecond = (nozzleDia * layerHeight * printSpeed) / 1000;
-        const printSeconds = (totalVolume * 1000) / Math.max(0.01, volumePerSecond);
-        const printMinutes = printSeconds / 60;
-        const printHours = Math.floor(printMinutes / 60);
-        const printMins = Math.floor(printMinutes % 60);
+        const extrustionRateGramsPerHour = 60;
+        const printHoursFull = filamentWeight / extrustionRateGramsPerHour;
+        const printHours = Math.floor(printHoursFull);
+        const printMins = Math.floor((printHoursFull - printHours) * 60);
 
         meshStats.hidden = false;
         meshStats.innerHTML = `
