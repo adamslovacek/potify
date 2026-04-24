@@ -519,6 +519,35 @@
       min-height: 1.2em;
       margin-top: 8px;
     }
+    .mesh-stats {
+      padding: 10px 16px 12px;
+      background: rgba(255, 255, 255, 0.92);
+      border-top: 1px solid #e2e8f0;
+      color: var(--muted);
+      font-size: 0.82rem;
+      line-height: 1.6;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 12px;
+    }
+    .mesh-stat-item {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .mesh-stat-label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.01em;
+      color: #64748b;
+    }
+    .mesh-stat-value {
+      font-size: 0.92rem;
+      font-weight: 700;
+      color: #1f2937;
+      font-family: "Monaco", "Courier New", monospace;
+    }
     .history-control {
       display: flex;
       gap: 6px;
@@ -819,6 +848,7 @@
             </div>
             <canvas id="preview-canvas"></canvas>
           </div>
+          <div id="mesh-stats" class="mesh-stats" hidden></div>
           <div id="preview-error" class="preview-error"></div>
         </aside>
 
@@ -1122,6 +1152,7 @@
     const languageMenu = document.getElementById("language-menu");
     const languageFlag = document.getElementById("language-flag");
     const shapeControls = Array.from(document.querySelectorAll(".shape-control[data-shapes]"));
+    const meshStats = document.getElementById("mesh-stats");
 
     const imageDisplacementState = {
       data: null,
@@ -7519,6 +7550,83 @@
       }
     }
 
+    function updateMeshStats() {
+      if (!meshStats || !scene) return;
+      try {
+        let polyCount = 0;
+        let vertexCount = 0;
+        scene.traverse((obj) => {
+          if (obj instanceof THREE.Mesh && obj.geometry) {
+            if (obj.geometry.index) {
+              polyCount += obj.geometry.index.count / 3;
+            } else if (obj.geometry.attributes.position) {
+              vertexCount = obj.geometry.attributes.position.count;
+              polyCount += vertexCount / 3;
+            }
+          }
+        });
+
+        const innerDia = numberValue("pot_diameter") + (2.0 * numberValue("clearance"));
+        const height = numberValue("height");
+        const wall = numberValue("wall");
+        const base = numberValue("base");
+        const includeBottom = inputs.include_bottom?.checked ? 1 : 0;
+
+        const radiusInner = innerDia / 2;
+        const radiusOuter = radiusInner + wall;
+        const bodyVolume = Math.PI * (radiusOuter * radiusOuter - radiusInner * radiusInner) * height;
+        const baseVolume = Math.PI * radiusOuter * radiusOuter * base * includeBottom;
+        const totalVolume = (bodyVolume + baseVolume) / 1000; // mm³ to cm³
+        const filamentDensity = 1.24; // PLA density
+        const filamentDia = 1.75;
+        const filamentArea = Math.PI * (filamentDia / 2) ** 2;
+        const filamentWeight = (totalVolume * filamentDensity); // grams, rough
+
+        const stlEstimate = polyCount * 80; // bytes, rough
+        const imfEstimate = polyCount * 30; // compressed
+
+        const layerHeight = 0.2;
+        const nozzleDia = 0.4;
+        const printSpeed = 60; // mm/s
+        const volumePerSecond = (nozzleDia * layerHeight * printSpeed) / 1000;
+        const printSeconds = (totalVolume * 1000) / Math.max(0.01, volumePerSecond);
+        const printMinutes = printSeconds / 60;
+        const printHours = Math.floor(printMinutes / 60);
+        const printMins = Math.floor(printMinutes % 60);
+
+        meshStats.hidden = false;
+        meshStats.innerHTML = `
+          <div class="mesh-stat-item">
+            <div class="mesh-stat-label">Polygons</div>
+            <div class="mesh-stat-value">${Math.round(polyCount).toLocaleString()}</div>
+          </div>
+          <div class="mesh-stat-item">
+            <div class="mesh-stat-label">STL Size</div>
+            <div class="mesh-stat-value">${(stlEstimate / 1024 / 1024).toFixed(1)} MB</div>
+          </div>
+          <div class="mesh-stat-item">
+            <div class="mesh-stat-label">3MF Size</div>
+            <div class="mesh-stat-value">${(imfEstimate / 1024 / 1024).toFixed(1)} MB</div>
+          </div>
+          <div class="mesh-stat-item">
+            <div class="mesh-stat-label">Print Time</div>
+            <div class="mesh-stat-value">${printHours}h ${printMins}m</div>
+          </div>
+          <div class="mesh-stat-item">
+            <div class="mesh-stat-label">Est. Weight</div>
+            <div class="mesh-stat-value">${filamentWeight.toFixed(0)} g</div>
+          </div>
+          <div class="mesh-stat-item">
+            <div class="mesh-stat-label">Volume</div>
+            <div class="mesh-stat-value">${totalVolume.toFixed(1)} cm³</div>
+          </div>
+        `;
+      } catch (error) {
+        console.warn("Failed to update mesh stats:", error);
+        meshStats.hidden = true;
+      }
+    }
+
     function updatePreview() {
       try {
         if (!canvas) {
@@ -7534,6 +7642,7 @@
         } else {
           console.log("Updating model...");
           setModel();
+          updateMeshStats();
         }
       } catch (error) {
         console.error("Preview error:", error);
@@ -7549,7 +7658,12 @@
       renderScene();
     }
 
+    function formatNumber(num) {
+      return Math.round(num).toLocaleString();
+    }
+
     function initPreview() {
+      updateMeshStats();
       if (!canvas) {
         console.error("Cannot initialize preview: canvas is null");
         return;
