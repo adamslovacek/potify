@@ -173,6 +173,31 @@
       min-height: 36px;
       box-shadow: none;
     }
+    .profile-control {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      background: #eef2f7;
+      border: 1px solid #d5dde8;
+      border-radius: 14px;
+      padding: 6px;
+    }
+    .profile-control select {
+      min-width: 220px;
+      height: 36px;
+      border-radius: 10px;
+      padding: 6px 10px;
+      font-size: 0.85rem;
+      border: 1px solid #c2cfdf;
+      background: #ffffff;
+    }
+    .profile-control button {
+      padding: 8px 10px;
+      border-radius: 10px;
+      font-size: 0.78rem;
+      min-height: 36px;
+      box-shadow: none;
+    }
     .language-control {
       position: relative;
       display: flex;
@@ -654,6 +679,8 @@
       .header-actions { width: 100%; justify-content: flex-start; }
       .preset-control { width: 100%; }
       .preset-control select { min-width: 0; flex: 1; }
+      .profile-control { width: 100%; }
+      .profile-control select { min-width: 0; flex: 1; }
       .content { padding: 16px 18px 24px; }
     }
   </style>
@@ -721,6 +748,13 @@
             </optgroup>
           </select>
           <button type="button" id="apply-preset-btn" class="button-secondary" data-i18n="applyPreset">Apply preset</button>
+        </div>
+        <div class="profile-control">
+          <select id="local-profile-select" aria-label="Local profiles">
+            <option value="">Local profiles...</option>
+          </select>
+          <button type="button" id="save-local-profile-btn" class="button-secondary">Save local</button>
+          <button type="button" id="delete-local-profile-btn" class="button-secondary">Delete</button>
         </div>
         <div class="export-action">
           <button type="submit" id="export-stl-btn" form="generator-form" formaction="/generate" formmethod="post" name="format" value="stl" data-i18n="exportStl">Export STL</button>
@@ -1096,6 +1130,9 @@
     const form = document.querySelector("form[action='/generate']");
     const loadConfigButton = document.getElementById("load-config-btn");
     const loadConfigInput = document.getElementById("load-config-input");
+    const localProfileSelect = document.getElementById("local-profile-select");
+    const saveLocalProfileButton = document.getElementById("save-local-profile-btn");
+    const deleteLocalProfileButton = document.getElementById("delete-local-profile-btn");
     const textureImageInput = document.getElementById("texture-image");
     const textureEditor = document.getElementById("texture-editor");
     const texturePreviewCanvas = document.getElementById("texture-preview-canvas");
@@ -1144,6 +1181,11 @@
       showBoundingBox: true,
       axisUnit: "mm",
       printerBed: "none",
+    };
+
+    const LOCAL_PROFILE_STORAGE_KEY = "potify_local_profiles_v1";
+    const localProfileState = {
+      profiles: {},
     };
 
     const PRINTER_BED_PRESETS = {
@@ -1323,6 +1365,104 @@
       pearl_wave: { pot_diameter: 147, clearance: 1.4, height: 174, wall: 3.1, base: 4.0, include_bottom: true, taper: 1.4, rim_lip: 1.8, shape_type: "polygon", star_inner_ratio: 0.5, middle_inbound_turns: 2.9, middle_inbound_z: 87, z_rotation: 340, sections: 10, texture_type: "rings", texture_strength: 0.7, texture_scale: 3.0, texture_rotation: 15, material_type: "pearl-glaze" },
       monolith_x: { pot_diameter: 160, clearance: 2.0, height: 200, wall: 3.8, base: 5.0, include_bottom: true, taper: 0.5, rim_lip: 1.4, shape_type: "polygon", star_inner_ratio: 0.5, middle_inbound_turns: 1.1, middle_inbound_z: 100, z_rotation: 120, sections: 4, texture_type: "hammered", texture_strength: 1.1, texture_scale: 1.9, texture_rotation: 20, material_type: "matte-black" },
     };
+
+    function createDefaultLocalProfiles() {
+      return {
+        "Bylinkáč": normalizePresetForFdm(PRESETS.leaf_braid || PRESETS.calm_taper || {}),
+        "Velký květináč": normalizePresetForFdm(PRESETS.monolith_x || PRESETS.gallery_edge || {}),
+        "Test": normalizePresetForFdm(PRESETS.mono_column || {}),
+      };
+    }
+
+    function readLocalProfiles() {
+      try {
+        const raw = localStorage.getItem(LOCAL_PROFILE_STORAGE_KEY);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (!parsed || typeof parsed !== "object") return null;
+        const profiles = parsed.profiles;
+        if (!profiles || typeof profiles !== "object") return null;
+        return profiles;
+      } catch (error) {
+        console.warn("Failed to parse local profiles:", error);
+        return null;
+      }
+    }
+
+    function persistLocalProfiles() {
+      localStorage.setItem(LOCAL_PROFILE_STORAGE_KEY, JSON.stringify({ profiles: localProfileState.profiles }));
+    }
+
+    function refreshLocalProfileSelect(selectedName = "") {
+      if (!localProfileSelect) return;
+      const names = Object.keys(localProfileState.profiles).sort((a, b) => a.localeCompare(b));
+      const previousValue = selectedName || localProfileSelect.value || "";
+
+      localProfileSelect.innerHTML = "";
+      const placeholder = document.createElement("option");
+      placeholder.value = "";
+      placeholder.textContent = names.length ? "Local profiles..." : "No local profiles";
+      localProfileSelect.appendChild(placeholder);
+
+      for (const name of names) {
+        const option = document.createElement("option");
+        option.value = name;
+        option.textContent = name;
+        localProfileSelect.appendChild(option);
+      }
+
+      if (previousValue && names.includes(previousValue)) {
+        localProfileSelect.value = previousValue;
+      } else {
+        localProfileSelect.value = "";
+      }
+
+      if (deleteLocalProfileButton) {
+        deleteLocalProfileButton.disabled = !names.length;
+      }
+    }
+
+    function initLocalProfiles() {
+      const loadedProfiles = readLocalProfiles();
+      if (loadedProfiles && Object.keys(loadedProfiles).length) {
+        localProfileState.profiles = loadedProfiles;
+      } else {
+        localProfileState.profiles = createDefaultLocalProfiles();
+        persistLocalProfiles();
+      }
+      refreshLocalProfileSelect();
+    }
+
+    function loadSelectedLocalProfile() {
+      const profileName = localProfileSelect?.value || "";
+      if (!profileName) return;
+      const profile = localProfileState.profiles[profileName];
+      if (!profile) return;
+      applyLoadedConfig(profile);
+      pushHistorySnapshot();
+      if (previewError) previewError.textContent = "";
+    }
+
+    function saveCurrentAsLocalProfile() {
+      const currentName = localProfileSelect?.value || "";
+      const suggestedName = currentName || "My profile";
+      const enteredName = window.prompt("Profile name", suggestedName);
+      if (enteredName == null) return;
+      const profileName = enteredName.trim();
+      if (!profileName) return;
+      localProfileState.profiles[profileName] = collectFormSnapshot();
+      persistLocalProfiles();
+      refreshLocalProfileSelect(profileName);
+    }
+
+    function deleteSelectedLocalProfile() {
+      const profileName = localProfileSelect?.value || "";
+      if (!profileName) return;
+      if (!window.confirm(`Delete local profile \"${profileName}\"?`)) return;
+      delete localProfileState.profiles[profileName];
+      persistLocalProfiles();
+      refreshLocalProfileSelect();
+    }
 
     const LANGUAGE_OPTIONS = [
       { code: "en", label: "English" },
@@ -7646,8 +7786,19 @@
       presetSelect.addEventListener("change", applySelectedPreset);
     }
 
+    if (localProfileSelect) {
+      localProfileSelect.addEventListener("change", loadSelectedLocalProfile);
+    }
+    if (saveLocalProfileButton) {
+      saveLocalProfileButton.addEventListener("click", saveCurrentAsLocalProfile);
+    }
+    if (deleteLocalProfileButton) {
+      deleteLocalProfileButton.addEventListener("click", deleteSelectedLocalProfile);
+    }
+
     populateMaterialStyleOptions();
     populateLanguageOptions();
+    initLocalProfiles();
     updatePrintabilityDiagnostics();
     pushHistorySnapshot();
 
