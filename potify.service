@@ -1,0 +1,15 @@
+[Unit]
+Description=Potify Planter Generator Web Server
+After=network.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/potify
+Environment="PATH=/home/pi/potify/.venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+ExecStart=/home/pi/potify/.venv/bin/planter-web --port 50555
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
