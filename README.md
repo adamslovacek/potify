@@ -1,11 +1,23 @@
 # Planter Sleeve Generator (3D Print)
 
+> **This project was built with AI assistance (GitHub Copilot / Claude).**
+
 Python tool with both CLI and browser UI to generate a customizable planter sleeve (cachepot) model and export to:
 
 - STL
 - 3MF
 
 All source code and docs are in English.
+
+## Deployment
+
+The web UI is deployed on a Raspberry Pi 3 and accessible at:
+
+```
+https://womfy.com/potify   (or via local IP https://10.0.0.3:50555)
+```
+
+Uses a valid Let's Encrypt TLS certificate (auto-renewed via certbot). The service starts automatically on boot via systemd.
 
 ## Features
 
