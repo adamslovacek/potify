@@ -13,9 +13,7 @@ All source code and docs are in English.
 
 The web UI is deployed on a Raspberry Pi 3 and accessible at:
 
-```
-https://womfy.com/potify   (or via local IP https://10.0.0.3:50555)
-```
+**[▶ Live demo: https://womfy.com:50555/](https://womfy.com:50555/)**
 
 Uses a valid Let's Encrypt TLS certificate (auto-renewed via certbot). The service starts automatically on boot via systemd.
 
