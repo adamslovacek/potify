@@ -8,7 +8,28 @@ from zipfile import ZIP_DEFLATED, ZipFile
 
 from flask import Flask, render_template, request, send_file
 
-from .model import DisplacementMode, ExportFormat, GeneratorConfig, ShapeType, TextureType, build_planter_sleeve, export_model
+
+def _load_model_symbols():
+    # Lazy-load heavy geometry stack so the web server can start even if mesh deps are unavailable.
+    from .model import (
+        DisplacementMode,
+        ExportFormat,
+        GeneratorConfig,
+        ShapeType,
+        TextureType,
+        build_planter_sleeve,
+        export_model,
+    )
+
+    return {
+        "DisplacementMode": DisplacementMode,
+        "ExportFormat": ExportFormat,
+        "GeneratorConfig": GeneratorConfig,
+        "ShapeType": ShapeType,
+        "TextureType": TextureType,
+        "build_planter_sleeve": build_planter_sleeve,
+        "export_model": export_model,
+    }
 
 
 def _to_float(value: str, name: str) -> float:
@@ -176,6 +197,15 @@ def create_app() -> Flask:
         form = merged_form_data()
         export_choice = form.get("format", "stl")
         image_payload = _extract_texture_image_payload()
+        symbols = _load_model_symbols()
+
+        GeneratorConfig = symbols["GeneratorConfig"]
+        TextureType = symbols["TextureType"]
+        DisplacementMode = symbols["DisplacementMode"]
+        ShapeType = symbols["ShapeType"]
+        ExportFormat = symbols["ExportFormat"]
+        build_planter_sleeve = symbols["build_planter_sleeve"]
+        export_model = symbols["export_model"]
 
         image_data = None
         image_w = 0
@@ -271,6 +301,14 @@ def create_app() -> Flask:
     @app.post("/save-config")
     def save_config():
         form = merged_form_data()
+        symbols = _load_model_symbols()
+
+        GeneratorConfig = symbols["GeneratorConfig"]
+        TextureType = symbols["TextureType"]
+        DisplacementMode = symbols["DisplacementMode"]
+        ShapeType = symbols["ShapeType"]
+        ExportFormat = symbols["ExportFormat"]
+
         try:
             payload = normalize_config_payload(form)
             texture_type_value = TextureType(payload["texture_type"])

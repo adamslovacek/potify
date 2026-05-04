@@ -9,8 +9,8 @@ description = "Generate 3D-printable planter sleeve models and export STL/3MF"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-    "trimesh>=4.11.0",
-    "scipy>=1.14.0",
+    "numpy==1.23.5",
+    "trimesh==3.23.5",
     "lxml>=5.0.0",
     "networkx>=3.0",
     "flask>=3.0.0",

@@ -50,7 +50,12 @@ python -m venv .venv
 
 echo "==> Instaluji Python závislosti..."
 .venv/bin/pip install --upgrade pip
-.venv/bin/pip install -e .
+# Instalace numpy/trimesh odděleně kvůli kompatibilitě s GLIBC na Raspbian Buster.
+.venv/bin/pip install --extra-index-url https://www.piwheels.org/simple --only-binary :all: "numpy==1.23.5" || \
+    .venv/bin/pip install --no-binary numpy "numpy==1.23.5"
+.venv/bin/pip install --extra-index-url https://www.piwheels.org/simple --only-binary :all: "trimesh==3.23.5"
+.venv/bin/pip install -e . --no-deps
+.venv/bin/pip install --extra-index-url https://www.piwheels.org/simple lxml networkx flask Pillow
 
 echo "==> Nastavuji systemd service..."
 sudo cp "$REMOTE_DIR/potify.service" /etc/systemd/system/potify.service
