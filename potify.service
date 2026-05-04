@@ -7,7 +7,7 @@ Type=simple
 User=pi
 WorkingDirectory=/home/pi/potify
 Environment="PATH=/home/pi/potify/.venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
-ExecStart=/home/pi/potify/.venv/bin/planter-web --port 50555
+ExecStart=/home/pi/potify/.venv/bin/planter-web --port 50555 --cert /home/pi/potify/potify.crt --key /home/pi/potify/potify.key
 Restart=on-failure
 RestartSec=5
 

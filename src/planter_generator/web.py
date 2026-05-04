@@ -371,11 +371,21 @@ def create_app() -> Flask:
 
 def main() -> int:
     import argparse
+    import ssl
     parser = argparse.ArgumentParser(description="Run the Planter Generator web server.")
     parser.add_argument('--port', type=int, default=5001, help='Port to run the server on (default: 5001)')
+    parser.add_argument('--cert', type=str, help='Path to SSL certificate file')
+    parser.add_argument('--key', type=str, help='Path to SSL key file')
     args = parser.parse_args()
     app = create_app()
-    app.run(host="0.0.0.0", port=args.port, debug=True)
+    
+    # Configure SSL if cert and key are provided
+    ssl_context = None
+    if args.cert and args.key:
+        ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        ssl_context.load_cert_chain(args.cert, args.key)
+    
+    app.run(host="0.0.0.0", port=args.port, debug=True, ssl_context=ssl_context)
     return 0
 
 
