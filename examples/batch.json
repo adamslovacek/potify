@@ -1,0 +1,32 @@
+[
+  {
+    "name": "standard-sleeve",
+    "pot_diameter": 80,
+    "height": 90,
+    "shape_type": "squircle",
+    "texture_type": "braid",
+    "format": "stl"
+  },
+  {
+    "name": "radial-engraved",
+    "pot_diameter": 100,
+    "height": 110,
+    "wall": 3.0,
+    "base": 4.0,
+    "shape_type": "polygon",
+    "texture_type": "none",
+    "z_rotation": 0,
+    "sections": 64,
+    "drain_hole_diameter": 3.0,
+    "drainage_pattern": "radial",
+    "drainage_hole_count": 4,
+    "drainage_spacing": 18.0,
+    "print_profile": "standard",
+    "auto_repair": true,
+    "text_content": "GROW",
+    "text_mode": "engrave",
+    "text_height": 8.0,
+    "text_depth": 0.6,
+    "format": "3mf"
+  }
+]

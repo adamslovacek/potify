@@ -1,16 +1,22 @@
 """Planter sleeve generator package."""
 
-__all__ = ["build_planter_sleeve", "ExportFormat", "GeneratorConfig"]
+__all__ = [
+		"DrainagePattern",
+		"ExportFormat",
+		"GeneratorConfig",
+		"PrintProfile",
+		"TextMode",
+		"analyze_printability",
+		"build_planter_sleeve",
+		"repair_config_for_printability",
+]
 
 
 def __getattr__(name: str):
-    if name in {"build_planter_sleeve", "ExportFormat", "GeneratorConfig"}:
-        from .model import ExportFormat, GeneratorConfig, build_planter_sleeve
+		if name in __all__:
+				from . import model
 
-        exports = {
-            "build_planter_sleeve": build_planter_sleeve,
-            "ExportFormat": ExportFormat,
-            "GeneratorConfig": GeneratorConfig,
-        }
-        return exports[name]
-    raise AttributeError(f"module 'planter_generator' has no attribute {name!r}")
+				value = getattr(model, name)
+				globals()[name] = value
+				return value
+		raise AttributeError(f"module 'planter_generator' has no attribute {name!r}")

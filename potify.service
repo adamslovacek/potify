@@ -7,7 +7,7 @@ Type=simple
 User=pi
 WorkingDirectory=/home/pi/potify
 Environment="PATH=/home/pi/potify/.venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
-ExecStart=/home/pi/potify/.venv/bin/planter-web --port 50555 --cert /etc/letsencrypt/live/womfy.com/fullchain.pem --key /etc/letsencrypt/live/womfy.com/privkey.pem
+ExecStart=/home/pi/potify/.venv/bin/planter-web --host 0.0.0.0 --port 50555 --cert /etc/letsencrypt/live/womfy.com/fullchain.pem --key /etc/letsencrypt/live/womfy.com/privkey.pem
 Restart=on-failure
 RestartSec=5
 

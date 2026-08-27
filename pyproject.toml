@@ -9,12 +9,23 @@ description = "Generate 3D-printable planter sleeve models and export STL/3MF"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-    "numpy==1.23.5",
-    "trimesh==3.23.5",
+    "numpy>=1.26.0",
+    "trimesh>=4.11.0",
+    "scipy>=1.14.0",
     "lxml>=5.0.0",
     "networkx>=3.0",
     "flask>=3.0.0",
     "Pillow>=10.0.0",
+    "manifold3d>=3.0.0",
+    "matplotlib>=3.8.0",
+    "shapely>=2.0.0",
+    "mapbox-earcut>=1.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "requests>=2.32.0",
 ]
 
 [project.scripts]
@@ -26,3 +37,6 @@ package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

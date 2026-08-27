@@ -1,11 +1,18 @@
 from __future__ import annotations
 
-from math import cos, pi, radians, sin, tan
-from dataclasses import dataclass
+from math import ceil, cos, pi, radians, sin, sqrt, tan
+from dataclasses import dataclass, replace
 from enum import Enum
 from pathlib import Path
 
 import trimesh
+
+
+MAX_SECTIONS = 256
+MAX_HEIGHT_STEPS = 256
+MAX_TEXT_LENGTH = 50
+MAX_TEXT_HEIGHT_MM = 20.0
+MAX_TEXT_DEPTH_MM = 2.0
 
 
 class ExportFormat(str, Enum):
@@ -47,6 +54,35 @@ class DisplacementMode(str, Enum):
     LOWER = "lower"
 
 
+class DrainagePattern(str, Enum):
+    CENTER = "center"
+    RADIAL = "radial"
+    GRID = "grid"
+    HEX = "hex"
+
+
+class TextMode(str, Enum):
+    NONE = "none"
+    EMBOSS = "emboss"
+    ENGRAVE = "engrave"
+
+
+class PrintProfile(str, Enum):
+    FINE = "fine"
+    STANDARD = "standard"
+    DRAFT = "draft"
+    CUSTOM = "custom"
+
+
+def print_profile_dimensions(profile: PrintProfile) -> tuple[float, float]:
+    return {
+        PrintProfile.FINE: (0.25, 0.12),
+        PrintProfile.STANDARD: (0.4, 0.2),
+        PrintProfile.DRAFT: (0.6, 0.3),
+        PrintProfile.CUSTOM: (0.4, 0.2),
+    }[profile]
+
+
 @dataclass(frozen=True)
 class GeneratorConfig:
     inner_diameter_mm: float
@@ -73,7 +109,7 @@ class GeneratorConfig:
     texture_image_width: int = 0
     texture_image_height: int = 0
     middle_inbound_turns: float = 0.0
-    middle_inbound_z_mm: float | None = 50.0
+    middle_inbound_z_mm: float | None = None
     z_rotation_deg: float = 26.0
     shape_type: ShapeType = ShapeType.SQUIRCLE
     star_inner_ratio: float = 0.45
@@ -83,16 +119,42 @@ class GeneratorConfig:
     shape_wave_count: int = 8
     sections: int = 7
     height_steps: int = 64
+    print_profile: PrintProfile = PrintProfile.STANDARD
+    nozzle_diameter_mm: float = 0.4
+    layer_height_mm: float = 0.2
     drain_hole_diameter_mm: float = 0.0
+    drainage_pattern: DrainagePattern = DrainagePattern.CENTER
+    drainage_hole_count: int = 1
+    drainage_spacing_mm: float = 12.0
+    text_content: str = ""
+    text_mode: TextMode = TextMode.EMBOSS
+    text_height_mm: float = 5.0
+    text_depth_mm: float = 0.5
+    text_position_z_mm: float | None = None
+    text_rotation_z_deg: float = 0.0
 
     def validate(self) -> None:
         if self.drain_hole_diameter_mm < 0:
             raise ValueError("drain_hole_diameter_mm must be >= 0")
+        if self.drain_hole_diameter_mm > 0 and not self.include_bottom:
+            raise ValueError("drain_hole_diameter_mm requires include_bottom")
         if self.drain_hole_diameter_mm > 0 and self.include_bottom:
             if self.drain_hole_diameter_mm >= self.inner_diameter_mm:
                 raise ValueError(
                     "drain_hole_diameter_mm must be smaller than inner_diameter_mm"
                 )
+            if self.drainage_hole_count < 1 or self.drainage_hole_count > 32:
+                raise ValueError("drainage_hole_count must be in range [1, 32]")
+            if self.drainage_spacing_mm <= 0:
+                raise ValueError("drainage_spacing_mm must be > 0")
+            positions = _drainage_hole_positions(self)
+            if not _drainage_holes_fit_floor(self, positions):
+                raise ValueError("drainage pattern does not fit inside the planter floor")
+            minimum_spacing = self.drain_hole_diameter_mm + 0.4
+            for index, (x0, y0) in enumerate(positions):
+                for x1, y1 in positions[index + 1:]:
+                    if sqrt(((x1 - x0) ** 2) + ((y1 - y0) ** 2)) < minimum_spacing:
+                        raise ValueError("drainage holes overlap; increase drainage_spacing_mm")
         if self.inner_diameter_mm <= 0:
             raise ValueError("inner_diameter_mm must be > 0")
         if self.height_mm <= 0:
@@ -150,8 +212,76 @@ class GeneratorConfig:
             raise ValueError("shape_wave_count must be in range [2, 24]")
         if self.sections < 3:
             raise ValueError("sections must be >= 3")
+        if self.sections > MAX_SECTIONS:
+            raise ValueError(f"sections must be <= {MAX_SECTIONS}")
         if self.height_steps < 8:
             raise ValueError("height_steps must be >= 8")
+        if self.height_steps > MAX_HEIGHT_STEPS:
+            raise ValueError(f"height_steps must be <= {MAX_HEIGHT_STEPS}")
+        if self.nozzle_diameter_mm < 0.15 or self.nozzle_diameter_mm > 1.2:
+            raise ValueError("nozzle_diameter_mm must be in range [0.15, 1.2]")
+        if self.layer_height_mm < 0.05 or self.layer_height_mm > self.nozzle_diameter_mm * 0.8:
+            raise ValueError("layer_height_mm must be between 0.05 and 80% of nozzle_diameter_mm")
+        if len(self.text_content) > MAX_TEXT_LENGTH:
+            raise ValueError(f"text_content must be at most {MAX_TEXT_LENGTH} characters")
+        if self.text_height_mm < 0:
+            raise ValueError("text_height_mm must be >= 0")
+        if self.text_height_mm > MAX_TEXT_HEIGHT_MM:
+            raise ValueError(f"text_height_mm must be <= {MAX_TEXT_HEIGHT_MM:g}")
+        if self.text_depth_mm < 0:
+            raise ValueError("text_depth_mm must be >= 0")
+        if self.text_depth_mm > MAX_TEXT_DEPTH_MM:
+            raise ValueError(f"text_depth_mm must be <= {MAX_TEXT_DEPTH_MM:g}")
+        if self.text_content and self.text_mode != TextMode.NONE and self.text_depth_mm <= 0:
+            raise ValueError("text_depth_mm must be > 0 when a text effect is enabled")
+        if self.text_position_z_mm is not None and (
+            self.text_position_z_mm < 0 or self.text_position_z_mm > self.height_mm
+        ):
+            raise ValueError("text_position_z_mm must be in range [0, height_mm]")
+
+
+def _drainage_hole_positions(config: GeneratorConfig) -> list[tuple[float, float]]:
+    if config.drainage_pattern == DrainagePattern.CENTER:
+        return [(0.0, 0.0)]
+
+    count = config.drainage_hole_count
+    spacing = config.drainage_spacing_mm
+    if config.drainage_pattern == DrainagePattern.RADIAL:
+        return [
+            (
+                spacing * cos((2.0 * pi * index) / count),
+                spacing * sin((2.0 * pi * index) / count),
+            )
+            for index in range(count)
+        ]
+
+    if config.drainage_pattern == DrainagePattern.GRID:
+        side = ceil(sqrt(count))
+        offset = (side - 1) * 0.5
+        candidates = [
+            ((column - offset) * spacing, (row - offset) * spacing)
+            for row in range(side)
+            for column in range(side)
+        ]
+        candidates.sort(key=lambda point: ((point[0] ** 2) + (point[1] ** 2), point[1], point[0]))
+        return candidates[:count]
+
+    candidates = [(0.0, 0.0)]
+    ring = 1
+    while len(candidates) < count:
+        for q in range(-ring, ring + 1):
+            for r in range(-ring, ring + 1):
+                if max(abs(q), abs(r), abs(-q - r)) != ring:
+                    continue
+                candidates.append(
+                    (
+                        spacing * (q + (r * 0.5)),
+                        spacing * (sqrt(3.0) * 0.5 * r),
+                    )
+                )
+        ring += 1
+    candidates.sort(key=lambda point: ((point[0] ** 2) + (point[1] ** 2), point[1], point[0]))
+    return candidates[:count]
 
 
 def _lerp(z0: float, r0: float, z1: float, r1: float, z: float) -> float:
@@ -284,13 +414,64 @@ def _outer_base_radius(z: float, config: GeneratorConfig) -> float:
 
 def _inner_base_radius(z: float, config: GeneratorConfig) -> float:
     z_base = _effective_base_z(config)
-    z_top = config.height_mm
     r_inner_at_base = config.inner_diameter_mm / 2.0
     taper = tan(radians(config.taper_deg))
 
     if z < z_base:
         return r_inner_at_base
     return r_inner_at_base + taper * (z - z_base)
+
+
+def _shape_ring_outline(
+    z: float,
+    config: GeneratorConfig,
+    *,
+    inner: bool,
+) -> list[tuple[float, float]]:
+    point_count = _shape_point_count(config)
+    rotation = (
+        _middle_inbound_angle(z, config.height_mm, config)
+        + _z_twist_angle(z, config.height_mm, config)
+    )
+    base_radius = (
+        _inner_base_radius(z, config)
+        if inner
+        else _outer_base_radius(z, config)
+    )
+    points: list[tuple[float, float]] = []
+    for index in range(point_count):
+        theta, radius_factor = _get_point_angle_and_radius_factor(
+            index,
+            point_count,
+            config,
+        )
+        texture_offset = 0.0 if inner else _texture_offset(z, theta, config)
+        radius = max(0.05, (base_radius + texture_offset) * radius_factor)
+        world_theta = theta + rotation
+        points.append((radius * cos(world_theta), radius * sin(world_theta)))
+    return points
+
+
+def _drainage_holes_fit_floor(
+    config: GeneratorConfig,
+    positions: list[tuple[float, float]],
+) -> bool:
+    from shapely.geometry import Point, Polygon
+
+    base_z = config.base_thickness_mm
+    sample_heights = sorted({0.0, base_z * 0.5, base_z})
+    footprint = Polygon(_shape_ring_outline(base_z, config, inner=True)).buffer(0)
+    for z in sample_heights:
+        outer = Polygon(_shape_ring_outline(z, config, inner=False)).buffer(0)
+        footprint = footprint.intersection(outer)
+    if footprint.is_empty:
+        return False
+
+    hole_radius = config.drain_hole_diameter_mm * 0.5
+    return all(
+        footprint.covers(Point(x, y).buffer(hole_radius, quad_segs=32))
+        for x, y in positions
+    )
 
 
 def _texture_uv(z: float, theta: float, config: GeneratorConfig) -> tuple[float, float]:
@@ -684,13 +865,13 @@ def _build_planter_mesh(config: GeneratorConfig) -> trimesh.Trimesh:
             # Hole cylinder wall (inward normals)
             faces.extend(_build_wall_faces(2, hole_point_count, hole_bottom_offset, reverse=True))
         else:
-            bottom_outline = [(x, y) for x, y, _z in outer_rings[0]]
+            bottom_outline = [(point[0], point[1]) for point in outer_rings[0]]
             bottom_triangles = _triangulate_simple_polygon(bottom_outline)
             for a, b, c in bottom_triangles:
                 faces.append([c, b, a])
 
             inner_base_start = inner_offset
-            inner_outline = [(x, y) for x, y, _z in inner_rings[0]]
+            inner_outline = [(point[0], point[1]) for point in inner_rings[0]]
             inner_triangles = _triangulate_simple_polygon(inner_outline)
             for a, b, c in inner_triangles:
                 faces.append([
@@ -698,19 +879,71 @@ def _build_planter_mesh(config: GeneratorConfig) -> trimesh.Trimesh:
                     inner_base_start + b,
                     inner_base_start + c,
                 ])
+    else:
+        faces.extend(
+            _build_annulus_faces(
+                point_count,
+                0,
+                point_count,
+                inner_offset,
+                reverse=True,
+            )
+        )
 
     mesh = trimesh.Trimesh(vertices=vertices, faces=faces, process=False)
     mesh.process(validate=True)
     trimesh.repair.fix_normals(mesh)
     if config.include_bottom and not mesh.is_watertight:
         trimesh.repair.fill_holes(mesh)
-    if config.include_bottom and not mesh.is_watertight:
+    if not mesh.is_watertight:
         raise RuntimeError("Generated mesh is not watertight.")
     return mesh
 
 
+def _apply_drainage_pattern(
+    planter_mesh: trimesh.Trimesh,
+    config: GeneratorConfig,
+) -> trimesh.Trimesh:
+    cutters: list[trimesh.Trimesh] = []
+    cutter_height = config.base_thickness_mm + 2.0
+    for x, y in _drainage_hole_positions(config):
+        cutter = trimesh.creation.cylinder(
+            radius=config.drain_hole_diameter_mm * 0.5,
+            height=cutter_height,
+            sections=max(32, min(96, config.sections * 2)),
+        )
+        cutter.apply_translation((x, y, config.base_thickness_mm * 0.5))
+        cutters.append(cutter)
+
+    cutter_mesh = cutters[0] if len(cutters) == 1 else trimesh.boolean.union(
+        cutters,
+        engine="manifold",
+    )
+    result = trimesh.boolean.difference(
+        [planter_mesh, cutter_mesh],
+        engine="manifold",
+    )
+    if not isinstance(result, trimesh.Trimesh) or not result.is_watertight:
+        raise RuntimeError("Failed to create a watertight drainage pattern.")
+    return result
+
+
 def build_planter_sleeve(config: GeneratorConfig) -> trimesh.Trimesh:
     config.validate()
+    if (
+        config.drain_hole_diameter_mm > 0
+        and config.drainage_pattern != DrainagePattern.CENTER
+    ):
+        body_config = replace(
+            config,
+            drain_hole_diameter_mm=0.0,
+            drainage_pattern=DrainagePattern.CENTER,
+            text_content="",
+        )
+        mesh = build_planter_sleeve(body_config)
+        mesh = _apply_drainage_pattern(mesh, config)
+        return engrave_text_on_planter(mesh, config)
+
     if (
         config.shape_type == ShapeType.POLYGON
         and
@@ -776,22 +1009,24 @@ def build_planter_sleeve(config: GeneratorConfig) -> trimesh.Trimesh:
         mesh = trimesh.creation.revolve(profile, sections=config.sections)
         if not mesh.is_watertight:
             raise RuntimeError("Generated mesh is not watertight.")
+        mesh = engrave_text_on_planter(mesh, config)
         return mesh
 
-    return _build_planter_mesh(config)
+    mesh = _build_planter_mesh(config)
+    return engrave_text_on_planter(mesh, config)
 
 
 def analyze_printability(config: GeneratorConfig) -> list[str]:
     """Return non-fatal printability warnings for common FDM setups."""
     warnings: list[str] = []
 
-    nozzle_mm = 0.4
+    nozzle_mm = config.nozzle_diameter_mm
     recommended_min_wall = nozzle_mm * 3.0
     recommended_min_base = nozzle_mm * 3.0
 
     if config.wall_thickness_mm < recommended_min_wall:
         warnings.append(
-            f"Wall thickness {config.wall_thickness_mm:.2f} mm is thin for a 0.4 mm nozzle "
+            f"Wall thickness {config.wall_thickness_mm:.2f} mm is thin for a {nozzle_mm:g} mm nozzle "
             f"(recommended >= {recommended_min_wall:.2f} mm)."
         )
 
@@ -821,12 +1056,193 @@ def analyze_printability(config: GeneratorConfig) -> list[str]:
             "Very high section count increases mesh complexity and slicer memory usage."
         )
 
-    if config.include_bottom and 0 < config.drain_hole_diameter_mm < 1.2:
+    if config.include_bottom and 0 < config.drain_hole_diameter_mm < nozzle_mm * 3.0:
         warnings.append(
             "Drain hole diameter is very small and can close during printing."
         )
 
+    if config.layer_height_mm > nozzle_mm * 0.6:
+        warnings.append(
+            "Layer height is high relative to nozzle diameter; reduce it for reliable extrusion."
+        )
+
     return warnings
+
+
+def repair_config_for_printability(
+    config: GeneratorConfig,
+) -> tuple[GeneratorConfig, list[str]]:
+    updates: dict[str, float | int] = {}
+    repairs: list[str] = []
+    minimum_feature = round(config.nozzle_diameter_mm * 3.0, 4)
+
+    wall = max(config.wall_thickness_mm, minimum_feature)
+    if wall != config.wall_thickness_mm:
+        updates["wall_thickness_mm"] = wall
+        repairs.append(f"Wall thickness increased to {wall:.2f} mm.")
+
+    if config.include_bottom:
+        base = max(config.base_thickness_mm, minimum_feature)
+        if base != config.base_thickness_mm:
+            updates["base_thickness_mm"] = base
+            repairs.append(f"Base thickness increased to {base:.2f} mm.")
+
+    if 0 < config.drain_hole_diameter_mm < minimum_feature:
+        updates["drain_hole_diameter_mm"] = minimum_feature
+        repairs.append(f"Drain hole diameter increased to {minimum_feature:.2f} mm.")
+
+    texture_limit = round(wall * 0.65, 4)
+    if config.texture_strength_mm > texture_limit:
+        updates["texture_strength_mm"] = texture_limit
+        repairs.append(f"Texture strength reduced to {texture_limit:.2f} mm.")
+
+    taper = max(-5.0, min(5.0, config.taper_deg))
+    if taper != config.taper_deg:
+        updates["taper_deg"] = taper
+        repairs.append(f"Taper limited to {taper:.1f} degrees.")
+
+    sections = min(config.sections, 220)
+    if sections != config.sections:
+        updates["sections"] = sections
+        repairs.append(f"Section count reduced to {sections}.")
+
+    layer_height = min(config.layer_height_mm, round(config.nozzle_diameter_mm * 0.6, 4))
+    if layer_height != config.layer_height_mm:
+        updates["layer_height_mm"] = layer_height
+        repairs.append(f"Layer height reduced to {layer_height:.2f} mm.")
+
+    return replace(config, **updates), repairs
+
+
+def engrave_text_on_planter(
+    planter_mesh: trimesh.Trimesh,
+    config: GeneratorConfig,
+) -> trimesh.Trimesh:
+    if (
+        not config.text_content
+        or config.text_height_mm <= 0
+        or config.text_mode == TextMode.NONE
+    ):
+        return planter_mesh
+
+    import numpy as np
+    from matplotlib.font_manager import FontProperties
+    from matplotlib.textpath import TextPath
+    from shapely import affinity
+    from shapely.geometry import Polygon
+
+    text_path = TextPath(
+        (0.0, 0.0),
+        config.text_content,
+        size=1.0,
+        prop=FontProperties(family="DejaVu Sans"),
+    )
+    geometry = None
+    for contour in text_path.to_polygons(closed_only=True):
+        polygon = Polygon(contour)
+        if not polygon.is_valid or polygon.area <= 1e-8:
+            continue
+        geometry = polygon if geometry is None else geometry.symmetric_difference(polygon)
+    if geometry is None or geometry.is_empty:
+        raise ValueError("text_content did not produce any printable glyphs")
+
+    geometry = geometry.buffer(0)
+    min_x, min_y, max_x, max_y = geometry.bounds
+    source_height = max_y - min_y
+    if source_height <= 1e-8:
+        raise ValueError("text_content did not produce measurable glyphs")
+    scale = config.text_height_mm / source_height
+    geometry = affinity.scale(geometry, xfact=scale, yfact=scale, origin=(0.0, 0.0))
+    min_x, min_y, max_x, max_y = geometry.bounds
+    geometry = affinity.translate(
+        geometry,
+        xoff=-((min_x + max_x) * 0.5),
+        yoff=-((min_y + max_y) * 0.5),
+    )
+    min_x, _, max_x, _ = geometry.bounds
+
+    text_z = (
+        config.text_position_z_mm
+        if config.text_position_z_mm is not None
+        else config.height_mm * 0.5
+    )
+    local_theta = radians(config.text_rotation_z_deg)
+    theta = (
+        local_theta
+        + _middle_inbound_angle(text_z, config.height_mm, config)
+        + _z_twist_angle(text_z, config.height_mm, config)
+    )
+    outer_radius = (
+        _outer_base_radius(text_z, config)
+        + _texture_offset(text_z, local_theta, config)
+    ) * _shape_radius_factor(local_theta, config)
+    half_width = (max_x - min_x) * 0.5
+    if half_width >= outer_radius * 0.9:
+        raise ValueError("text is too wide for the selected planter diameter")
+    sagitta = outer_radius - sqrt(max(1e-6, (outer_radius ** 2) - (half_width ** 2)))
+    overlap = min(
+        config.wall_thickness_mm * 0.75,
+        max(0.35, sagitta + 0.25),
+    )
+    radial_start = (
+        outer_radius - overlap
+        if config.text_mode == TextMode.EMBOSS
+        else outer_radius - config.text_depth_mm - overlap
+    )
+    radial_length = config.text_depth_mm + overlap + 0.15
+
+    polygons = [geometry] if geometry.geom_type == "Polygon" else list(geometry.geoms)
+    text_meshes = [
+        trimesh.creation.extrude_polygon(
+            polygon,
+            height=radial_length,
+            engine="earcut",
+        )
+        for polygon in polygons
+        if polygon.area > 1e-8
+    ]
+    if not text_meshes:
+        raise ValueError("text_content did not produce printable polygons")
+    text_mesh = trimesh.util.concatenate(text_meshes)
+
+    radial_x = cos(theta)
+    radial_y = sin(theta)
+    tangent_x = -sin(theta)
+    tangent_y = cos(theta)
+    vertices = np.asarray(text_mesh.vertices).copy()
+    local_x = vertices[:, 0].copy()
+    local_z = vertices[:, 1].copy()
+    radial_offset = vertices[:, 2].copy()
+    radial_distance = radial_start + radial_offset
+    vertices[:, 0] = (radial_distance * radial_x) + (local_x * tangent_x)
+    vertices[:, 1] = (radial_distance * radial_y) + (local_x * tangent_y)
+    vertices[:, 2] = text_z + local_z
+    text_mesh.vertices = vertices
+
+    source_volume = float(planter_mesh.volume)
+    if config.text_mode == TextMode.EMBOSS:
+        result = trimesh.boolean.union(
+            [planter_mesh, text_mesh],
+            engine="manifold",
+        )
+    else:
+        result = trimesh.boolean.difference(
+            [planter_mesh, text_mesh],
+            engine="manifold",
+        )
+    if (
+        not isinstance(result, trimesh.Trimesh)
+        or not result.is_watertight
+        or result.body_count != 1
+    ):
+        raise RuntimeError("Text boolean operation did not produce one watertight body.")
+    volume_tolerance = max(1e-6, abs(source_volume) * 1e-9)
+    result_volume = float(result.volume)
+    if config.text_mode == TextMode.EMBOSS and result_volume <= source_volume + volume_tolerance:
+        raise RuntimeError("Embossed text did not intersect the planter surface.")
+    if config.text_mode == TextMode.ENGRAVE and result_volume >= source_volume - volume_tolerance:
+        raise RuntimeError("Engraved text did not intersect the planter surface.")
+    return result
 
 
 def export_model(model: trimesh.Trimesh, output_stem: Path, fmt: ExportFormat) -> list[Path]:

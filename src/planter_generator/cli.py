@@ -10,9 +10,19 @@ def _build_parser() -> argparse.ArgumentParser:
         description="Generate a 3D-printable planter sleeve and export STL/3MF.",
     )
     parser.add_argument(
+        "--batch",
+        type=Path,
+        help="Generate multiple models from a UTF-8 JSON or CSV configuration file.",
+    )
+    parser.add_argument(
+        "--batch-output",
+        type=Path,
+        default=Path("batch_output"),
+        help="Output directory for batch models and manifest (default: batch_output).",
+    )
+    parser.add_argument(
         "--pot-diameter",
         type=float,
-        required=True,
         help="Outer diameter of the inner pot in mm.",
     )
     parser.add_argument(
@@ -24,7 +34,6 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--height",
         type=float,
-        required=True,
         help="Sleeve height in mm.",
     )
     parser.add_argument(
@@ -49,6 +58,24 @@ def _build_parser() -> argparse.ArgumentParser:
         type=float,
         default=0.0,
         help="Diameter of drainage hole in bottom in mm (default: 0 = no hole).",
+    )
+    parser.add_argument(
+        "--drainage-pattern",
+        choices=["center", "radial", "grid", "hex"],
+        default="center",
+        help="Drainage layout (default: center).",
+    )
+    parser.add_argument(
+        "--drainage-hole-count",
+        type=int,
+        default=1,
+        help="Number of drainage holes for non-center patterns (default: 1).",
+    )
+    parser.add_argument(
+        "--drainage-spacing",
+        type=float,
+        default=12.0,
+        help="Pattern radius or grid pitch in mm (default: 12).",
     )
     parser.add_argument(
         "--taper",
@@ -182,6 +209,61 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Primary divisions or side count for shape generation (default: 7).",
     )
     parser.add_argument(
+        "--print-profile",
+        choices=["fine", "standard", "draft", "custom"],
+        default="standard",
+        help="FDM print profile (default: standard).",
+    )
+    parser.add_argument(
+        "--nozzle-diameter",
+        type=float,
+        help="Nozzle diameter in mm; defaults to the selected print profile.",
+    )
+    parser.add_argument(
+        "--layer-height",
+        type=float,
+        help="Layer height in mm; defaults to the selected print profile.",
+    )
+    parser.add_argument(
+        "--auto-repair",
+        action="store_true",
+        help="Apply conservative printability fixes before generation.",
+    )
+    parser.add_argument(
+        "--text",
+        default="",
+        help="Text to emboss or engrave on the planter.",
+    )
+    parser.add_argument(
+        "--text-mode",
+        choices=["none", "emboss", "engrave"],
+        default="emboss",
+        help="Boolean text effect (default: emboss).",
+    )
+    parser.add_argument(
+        "--text-height",
+        type=float,
+        default=5.0,
+        help="Text height in mm (default: 5).",
+    )
+    parser.add_argument(
+        "--text-depth",
+        type=float,
+        default=0.5,
+        help="Emboss or engraving depth in mm (default: 0.5).",
+    )
+    parser.add_argument(
+        "--text-position-z",
+        type=float,
+        help="Text center height in mm (default: automatic center).",
+    )
+    parser.add_argument(
+        "--text-rotation-z",
+        type=float,
+        default=0.0,
+        help="Text placement angle around Z in degrees (default: 0).",
+    )
+    parser.add_argument(
         "--format",
         choices=["stl", "3mf", "both"],
         default="both",
@@ -196,11 +278,52 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = _build_parser()
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
-    from .model import ExportFormat, GeneratorConfig, ShapeType, TextureType, build_planter_sleeve, export_model
+    if args.batch is not None:
+        from .batch import generate_batch, parse_batch_data
+
+        try:
+            records = parse_batch_data(args.batch.name, args.batch.read_bytes())
+            if args.auto_repair:
+                records = [{**record, "auto_repair": True} for record in records]
+            manifest, exported = generate_batch(records, args.batch_output)
+        except (OSError, ValueError) as exc:
+            parser.error(str(exc))
+        print(
+            f"Batch complete: {manifest['generated_count']} generated, "
+            f"{manifest['error_count']} failed."
+        )
+        print(f"Output directory: {args.batch_output.resolve()}")
+        print(f"Written files: {len(exported)}")
+        return 1 if manifest["error_count"] else 0
+
+    if args.pot_diameter is None or args.height is None:
+        parser.error("--pot-diameter and --height are required unless --batch is used")
+
+    from .model import (
+        DrainagePattern,
+        ExportFormat,
+        GeneratorConfig,
+        PrintProfile,
+        ShapeType,
+        TextMode,
+        TextureType,
+        build_planter_sleeve,
+        export_model,
+        repair_config_for_printability,
+    )
+
+    from .model import print_profile_dimensions
+
+    profile = PrintProfile(args.print_profile)
+    profile_nozzle, profile_layer = print_profile_dimensions(profile)
+    nozzle_diameter = (
+        args.nozzle_diameter if args.nozzle_diameter is not None else profile_nozzle
+    )
+    layer_height = args.layer_height if args.layer_height is not None else profile_layer
 
     inner_diameter = args.pot_diameter + (2.0 * args.clearance)
 
@@ -213,6 +336,9 @@ def main() -> int:
         taper_deg=args.taper,
         rim_lip_mm=args.rim_lip,
         drain_hole_diameter_mm=args.drain_hole_diameter,
+        drainage_pattern=DrainagePattern(args.drainage_pattern),
+        drainage_hole_count=args.drainage_hole_count,
+        drainage_spacing_mm=args.drainage_spacing,
         texture_type=TextureType(args.texture_type),
         texture_strength_mm=args.texture_strength,
         texture_scale=args.texture_scale,
@@ -230,7 +356,20 @@ def main() -> int:
         shape_wave_depth=args.shape_wave_depth,
         shape_wave_count=args.shape_wave_count,
         sections=args.sections,
+        print_profile=profile,
+        nozzle_diameter_mm=nozzle_diameter,
+        layer_height_mm=layer_height,
+        text_content=args.text,
+        text_mode=TextMode(args.text_mode),
+        text_height_mm=args.text_height,
+        text_depth_mm=args.text_depth,
+        text_position_z_mm=args.text_position_z,
+        text_rotation_z_deg=args.text_rotation_z,
     )
+
+    repairs: list[str] = []
+    if args.auto_repair:
+        config, repairs = repair_config_for_printability(config)
 
     model = build_planter_sleeve(config)
     exported = export_model(model, args.output, ExportFormat(args.format))
@@ -238,6 +377,10 @@ def main() -> int:
     print("Generated planter sleeve.")
     print(f"Inner diameter: {config.inner_diameter_mm:.2f} mm")
     print(f"Height: {config.height_mm:.2f} mm")
+    if repairs:
+        print("Automatic repairs:")
+        for repair in repairs:
+            print(f" - {repair}")
     print("Written files:")
     for path in exported:
         print(f" - {path}")

@@ -1,6 +1,8 @@
 import requests
 import re
 
+BASE_URL = 'http://127.0.0.1:5001'
+
 # Test with all required form fields
 data = {
     'pot_diameter': '140',
@@ -19,12 +21,12 @@ data = {
     'z_rotation': '0',
     'shape_type': 'polygon',
     'star_inner_ratio': '0.5',
-    'sections': '256',
+    'sections': '32',
     'format': 'stl'
 }
 
 print("Testing polygon shape...")
-resp = requests.post('http://127.0.0.1:5005/generate', data=data)
+resp = requests.post(f'{BASE_URL}/generate', data=data, timeout=60)
 print(f"Status: {resp.status_code}")
 
 # Extract error from HTML if present
@@ -42,7 +44,7 @@ else:
 print("\nTesting star shape...")
 data['shape_type'] = 'star'
 data['star_inner_ratio'] = '0.4'
-resp2 = requests.post('http://127.0.0.1:5005/generate', data=data)
+resp2 = requests.post(f'{BASE_URL}/generate', data=data, timeout=60)
 print(f"Status: {resp2.status_code}")
 
 if resp2.status_code != 200:

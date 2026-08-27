@@ -661,6 +661,64 @@
       line-height: 1.35;
       color: var(--muted);
     }
+    .utility-actions {
+      display: inline-flex;
+      gap: 6px;
+      align-items: center;
+      padding: 6px;
+      border: 1px solid #d5dde8;
+      border-radius: 14px;
+      background: #eef2f7;
+    }
+    .utility-actions button {
+      min-height: 36px;
+      padding: 8px 10px;
+      border-radius: 10px;
+      font-size: 0.78rem;
+      box-shadow: none;
+    }
+    .operation-status {
+      position: fixed;
+      right: 18px;
+      bottom: 18px;
+      z-index: 80;
+      max-width: min(420px, calc(100vw - 36px));
+      padding: 11px 14px;
+      border: 1px solid #bac8d8;
+      border-radius: 8px;
+      background: #f8fbff;
+      color: #26384d;
+      box-shadow: 0 12px 30px rgba(15, 23, 42, 0.18);
+      font-size: 0.85rem;
+      line-height: 1.4;
+    }
+    .operation-status:empty { display: none; }
+    dialog {
+      width: min(520px, calc(100vw - 32px));
+      max-height: min(760px, calc(100vh - 32px));
+      overflow-y: auto;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      padding: 0;
+      background: #ffffff;
+      color: var(--ink);
+      box-shadow: 0 24px 60px rgba(15, 23, 42, 0.28);
+    }
+    dialog::backdrop { background: rgba(15, 23, 42, 0.42); }
+    .dialog-body {
+      display: grid;
+      gap: 14px;
+      padding: 20px;
+      width: 100%;
+      min-width: 0;
+    }
+    .dialog-body > * { min-width: 0; }
+    .dialog-body input,
+    .dialog-body select { width: 100%; max-width: 100%; }
+    .dialog-body h2 { margin: 0; font-size: 1.05rem; }
+    .dialog-actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-end; }
+    .dialog-actions button { min-height: 42px; padding: 10px 16px; }
+    .share-link { width: 100%; font-family: "Consolas", monospace; }
     @media (max-width: 980px) {
       .card {
         height: auto;
@@ -683,6 +741,7 @@
       .header-actions { width: 100%; justify-content: flex-start; }
       .preset-control { width: 100%; }
       .preset-control select { min-width: 0; flex: 1; }
+      .utility-actions { width: 100%; flex-wrap: wrap; }
       .content { padding: 16px 18px 24px; }
     }
   </style>
@@ -751,13 +810,20 @@
           </select>
           <button type="button" id="apply-preset-btn" class="button-secondary" data-i18n="applyPreset">Apply preset</button>
         </div>
+        <div class="utility-actions">
+          <button type="button" id="save-custom-preset-btn" class="button-secondary" title="Save named preset">Preset +</button>
+          <button type="button" id="delete-custom-preset-btn" class="button-secondary" title="Delete selected custom preset">Preset -</button>
+          <button type="button" id="share-config-btn" class="button-secondary" title="Create shareable configuration link">Share</button>
+          <button type="button" id="batch-export-btn" class="button-secondary" title="Batch export JSON or CSV">Batch</button>
+          <button type="button" id="repair-config-btn" class="button-secondary" title="Apply printability fixes">Repair</button>
+        </div>
         <div class="export-action">
           <button type="submit" id="export-stl-btn" form="generator-form" formaction="/generate" formmethod="post" name="format" value="stl" data-i18n="exportStl">Export STL</button>
-          <span id="export-stl-status" class="export-status" data-state="ok" aria-hidden="true" title="No obvious printability risks detected.">OK</span>
+          <span id="export-stl-status" class="export-status" data-state="ok" role="status" aria-live="polite" title="No obvious printability risks detected.">OK</span>
         </div>
         <div class="export-action">
           <button type="submit" id="export-3mf-btn" form="generator-form" formaction="/generate" formmethod="post" name="format" value="3mf" data-i18n="export3mf">Export 3MF</button>
-          <span id="export-3mf-status" class="export-status" data-state="ok" aria-hidden="true" title="No obvious printability risks detected.">OK</span>
+          <span id="export-3mf-status" class="export-status" data-state="ok" role="status" aria-live="polite" title="No obvious printability risks detected.">OK</span>
         </div>
         <button type="button" id="load-config-btn" class="button-secondary" data-i18n="loadJson">Load</button>
         <button type="submit" id="save-config-btn" form="generator-form" formaction="/save-config" formmethod="post" class="button-secondary" data-i18n="saveJson">Save</button>
@@ -767,7 +833,7 @@
 
     <section class="content">
       {% if error %}
-      <div class="error">{{ error }}</div>
+      <div class="error" role="alert">{{ error }}</div>
       {% endif %}
 
       <div class="layout">
@@ -849,7 +915,7 @@
             <canvas id="preview-canvas"></canvas>
           </div>
           <div id="mesh-stats" class="mesh-stats" hidden></div>
-          <div id="preview-error" class="preview-error"></div>
+          <div id="preview-error" class="preview-error" role="status" aria-live="polite"></div>
         </aside>
 
         <form id="generator-form" method="post" action="/generate" class="panel menu-panel" enctype="multipart/form-data">
@@ -863,7 +929,7 @@
                 </label>
                 <label>
                   <span data-i18n="clearance">Clearance (mm)</span>
-                  <input name="clearance" type="number" step="0.1" value="{{ values.clearance }}" required>
+                  <input name="clearance" type="number" step="0.1" min="0" value="{{ values.clearance }}" required>
                 </label>
                 <label>
                   <span data-i18n="height">Height (mm)</span>
@@ -887,6 +953,23 @@
                   <input name="drain_hole_diameter" type="number" step="0.5" min="0" value="{{ values.drain_hole_diameter | default('0.0') }}">
                 </label>
                 <div class="toggle-caption" data-i18n="drainHoleHint">Set > 0 to add a central drainage hole. Requires Include bottom.</div>
+                <label>
+                  <span>Drainage pattern</span>
+                  <select name="drainage_pattern">
+                    <option value="center" {% if values.drainage_pattern == "center" %}selected{% endif %}>Center</option>
+                    <option value="radial" {% if values.drainage_pattern == "radial" %}selected{% endif %}>Radial ring</option>
+                    <option value="grid" {% if values.drainage_pattern == "grid" %}selected{% endif %}>Square grid</option>
+                    <option value="hex" {% if values.drainage_pattern == "hex" %}selected{% endif %}>Hexagonal</option>
+                  </select>
+                </label>
+                <label>
+                  <span>Drainage hole count</span>
+                  <input name="drainage_hole_count" type="number" step="1" min="1" max="32" value="{{ values.drainage_hole_count }}">
+                </label>
+                <label>
+                  <span>Drainage spacing (mm)</span>
+                  <input name="drainage_spacing" type="number" step="0.5" min="0.5" value="{{ values.drainage_spacing }}">
+                </label>
                 <label>
                   <span data-i18n="taper">Taper (deg)</span>
                   <input name="taper" type="number" step="0.1" value="{{ values.taper }}" required>
@@ -945,7 +1028,7 @@
                 </label>
                 <label>
                   <span data-i18n="middleInboundPositionLabel">Middle inbound position on Z (mm)</span>
-                  <input name="middle_inbound_z" type="number" step="0.1" min="0" value="{{ values.middle_inbound_z }}" required>
+                  <input name="middle_inbound_z" type="number" step="0.1" min="0" placeholder="Auto-center" value="{{ values.middle_inbound_z }}">
                 </label>
                 <label>
                   <span data-i18n="zTwistLabel">Z twist at top (deg)</span>
@@ -953,7 +1036,7 @@
                 </label>
                 <label class="shape-control" data-shapes="polygon star gear">
                   <span data-i18n="numberOfSidesLabel">Number of sides / teeth</span>
-                  <input name="sections" type="number" step="1" min="3" value="{{ values.sections }}" required>
+                  <input name="sections" type="number" step="1" min="3" max="256" value="{{ values.sections }}" required>
                 </label>
               </div>
             </details>
@@ -1062,6 +1145,70 @@
             </details>
 
             <details class="menu-group">
+              <summary>Print Profile & Repair</summary>
+              <div class="menu-group-body">
+                <label>
+                  <span>Print profile</span>
+                  <select name="print_profile">
+                    <option value="fine" {% if values.print_profile == "fine" %}selected{% endif %}>Fine · 0.25 / 0.12 mm</option>
+                    <option value="standard" {% if values.print_profile == "standard" %}selected{% endif %}>Standard · 0.4 / 0.2 mm</option>
+                    <option value="draft" {% if values.print_profile == "draft" %}selected{% endif %}>Draft · 0.6 / 0.3 mm</option>
+                    <option value="custom" {% if values.print_profile == "custom" %}selected{% endif %}>Custom</option>
+                  </select>
+                </label>
+                <label>
+                  <span>Nozzle diameter (mm)</span>
+                  <input name="nozzle_diameter" type="number" min="0.15" max="1.2" step="0.05" value="{{ values.nozzle_diameter }}">
+                </label>
+                <label>
+                  <span>Layer height (mm)</span>
+                  <input name="layer_height" type="number" min="0.05" max="0.96" step="0.01" value="{{ values.layer_height }}">
+                </label>
+                <label class="toggle-label">
+                  <input name="auto_repair" type="checkbox" {% if values.auto_repair %}checked{% endif %}>
+                  <span>Repair automatically before export</span>
+                </label>
+                <div class="field-hint">Repair adjusts fragile dimensions; it never edits the source preset.</div>
+              </div>
+            </details>
+
+            <details class="menu-group">
+              <summary data-i18n="menuText">Text & Engraving</summary>
+              <div class="menu-group-body">
+                <label>
+                  <span>Text effect</span>
+                  <select name="text_mode">
+                    <option value="none" {% if values.text_mode == "none" %}selected{% endif %}>Disabled</option>
+                    <option value="emboss" {% if values.text_mode == "emboss" %}selected{% endif %}>Emboss</option>
+                    <option value="engrave" {% if values.text_mode == "engrave" %}selected{% endif %}>Engrave</option>
+                  </select>
+                </label>
+                <label>
+                  <span data-i18n="textContentLabel">Text content</span>
+                  <input name="text_content" type="text" maxlength="50" placeholder="Enter text to engrave..." value="{{ values.text_content | default('') }}">
+                </label>
+                <div class="toggle-caption" data-i18n="textContentHint">Leave empty to skip engraving. Max 50 characters.</div>
+                <label>
+                  <span data-i18n="textHeightLabel">Text height (mm)</span>
+                  <input name="text_height" type="number" step="0.5" min="1" max="20" value="{{ values.text_height | default('5.0') }}">
+                </label>
+                <label>
+                  <span data-i18n="textDepthLabel">Engraving depth (mm)</span>
+                  <input name="text_depth" type="number" step="0.1" min="0.1" max="2" value="{{ values.text_depth | default('0.5') }}">
+                </label>
+                <label>
+                  <span data-i18n="textPositionLabel">Text position height (mm)</span>
+                  <input name="text_position_z" type="number" step="0.5" min="0" placeholder="Auto-center if empty" value="{{ values.text_position_z | default('') }}">
+                </label>
+                <div class="toggle-caption" data-i18n="textPositionHint">Leave empty to center text vertically on planter.</div>
+                <label>
+                  <span>Text angle around Z (deg)</span>
+                  <input name="text_rotation_z" type="number" step="1" min="-360" max="360" value="{{ values.text_rotation_z | default('0.0') }}">
+                </label>
+              </div>
+            </details>
+
+            <details class="menu-group">
               <summary data-i18n="menuMaterial">Material Preview Style</summary>
               <div class="menu-group-body">
                 <label>
@@ -1109,6 +1256,41 @@
       </div>
     </section>
   </main>
+  <div id="operation-status" class="operation-status" role="status" aria-live="polite"></div>
+
+  <dialog id="preset-dialog" aria-labelledby="preset-dialog-title">
+    <form method="dialog" class="dialog-body">
+      <h2 id="preset-dialog-title">Save Custom Preset</h2>
+      <label>Preset name <input id="custom-preset-name" type="text" maxlength="48" required></label>
+      <div class="dialog-actions">
+        <button value="cancel" class="button-secondary">Cancel</button>
+        <button id="confirm-save-preset-btn" value="default">Save preset</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="share-dialog" aria-labelledby="share-dialog-title">
+    <form method="dialog" class="dialog-body">
+      <h2 id="share-dialog-title">Share Configuration</h2>
+      <label>Share link <input id="share-config-link" class="share-link" type="url" readonly></label>
+      <div class="dialog-actions">
+        <button value="cancel" class="button-secondary">Close</button>
+        <button id="copy-share-link-btn" value="default">Copy link</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="batch-dialog" aria-labelledby="batch-dialog-title">
+    <form id="batch-form" method="dialog" class="dialog-body">
+      <h2 id="batch-dialog-title">Batch Export</h2>
+      <label>JSON or CSV file <input id="batch-file-input" name="batch_file" type="file" accept="application/json,text/csv,.json,.csv" required></label>
+      <div class="field-hint">Each row needs a name, pot_diameter, height, and optional generator fields.</div>
+      <div class="dialog-actions">
+        <button value="cancel" class="button-secondary">Cancel</button>
+        <button id="confirm-batch-export-btn" type="button">Generate ZIP</button>
+      </div>
+    </form>
+  </dialog>
   <script type="importmap">
     {
       "imports": {
@@ -1135,6 +1317,22 @@
     const textureInvertInput = document.getElementById("texture-invert");
     const presetSelect = document.getElementById("preset-select");
     const applyPresetButton = document.getElementById("apply-preset-btn");
+    const saveCustomPresetButton = document.getElementById("save-custom-preset-btn");
+    const deleteCustomPresetButton = document.getElementById("delete-custom-preset-btn");
+    const shareConfigButton = document.getElementById("share-config-btn");
+    const batchExportButton = document.getElementById("batch-export-btn");
+    const repairConfigButton = document.getElementById("repair-config-btn");
+    const presetDialog = document.getElementById("preset-dialog");
+    const customPresetName = document.getElementById("custom-preset-name");
+    const confirmSavePresetButton = document.getElementById("confirm-save-preset-btn");
+    const shareDialog = document.getElementById("share-dialog");
+    const shareConfigLink = document.getElementById("share-config-link");
+    const copyShareLinkButton = document.getElementById("copy-share-link-btn");
+    const batchDialog = document.getElementById("batch-dialog");
+    const batchForm = document.getElementById("batch-form");
+    const batchFileInput = document.getElementById("batch-file-input");
+    const confirmBatchExportButton = document.getElementById("confirm-batch-export-btn");
+    const operationStatus = document.getElementById("operation-status");
     const undoButton = document.getElementById("undo-btn");
     const redoButton = document.getElementById("redo-btn");
     const printabilityList = document.getElementById("printability-list");
@@ -1315,7 +1513,7 @@
           element.checked = !!normalized[name];
           continue;
         }
-        element.value = String(normalized[name]);
+        element.value = normalized[name] == null ? "" : String(normalized[name]);
       }
 
       // Keep backward compatibility with older config exports.
@@ -1354,6 +1552,179 @@
       pearl_wave: { pot_diameter: 147, clearance: 1.4, height: 174, wall: 3.1, base: 4.0, include_bottom: true, taper: 1.4, rim_lip: 1.8, shape_type: "polygon", star_inner_ratio: 0.5, middle_inbound_turns: 2.9, middle_inbound_z: 87, z_rotation: 340, sections: 10, texture_type: "rings", texture_strength: 0.7, texture_scale: 3.0, texture_rotation: 15, material_type: "pearl-glaze" },
       monolith_x: { pot_diameter: 160, clearance: 2.0, height: 200, wall: 3.8, base: 5.0, include_bottom: true, taper: 0.5, rim_lip: 1.4, shape_type: "polygon", star_inner_ratio: 0.5, middle_inbound_turns: 1.1, middle_inbound_z: 100, z_rotation: 120, sections: 4, texture_type: "hammered", texture_strength: 1.1, texture_scale: 1.9, texture_rotation: 20, material_type: "matte-black" },
     };
+
+    const CUSTOM_PRESETS_KEY = "potify_custom_presets_v1";
+    const CUSTOM_PRESETS_VERSION = 1;
+    const SHARE_CONFIG_VERSION = 1;
+    const MAX_SHARE_URL_LENGTH = 8000;
+
+    function setOperationStatus(message, isError = false) {
+      if (!operationStatus) return;
+      operationStatus.textContent = message;
+      operationStatus.style.borderColor = isError ? "#e6a999" : "#bac8d8";
+      operationStatus.style.color = isError ? "#8e2a1b" : "#26384d";
+    }
+
+    function readCustomPresets() {
+      try {
+        const parsed = JSON.parse(localStorage.getItem(CUSTOM_PRESETS_KEY) || "[]");
+        const entries = Array.isArray(parsed)
+          ? parsed
+          : (parsed?.version === CUSTOM_PRESETS_VERSION && Array.isArray(parsed.presets) ? parsed.presets : []);
+        return entries.filter((item) => item && item.id && item.name && item.config);
+      } catch {
+        return [];
+      }
+    }
+
+    function writeCustomPresets(presets) {
+      localStorage.setItem(CUSTOM_PRESETS_KEY, JSON.stringify({
+        version: CUSTOM_PRESETS_VERSION,
+        presets: presets.slice(-50),
+      }));
+    }
+
+    function refreshCustomPresetOptions(selectedId = "") {
+      if (!presetSelect) return;
+      presetSelect.querySelector('optgroup[data-custom-presets="true"]')?.remove();
+      const presets = readCustomPresets();
+      if (!presets.length) return;
+      const group = document.createElement("optgroup");
+      group.label = "Custom Presets";
+      group.dataset.customPresets = "true";
+      for (const preset of presets) {
+        const option = document.createElement("option");
+        option.value = `custom:${preset.id}`;
+        option.textContent = preset.name;
+        group.append(option);
+      }
+      presetSelect.append(group);
+      if (selectedId) presetSelect.value = `custom:${selectedId}`;
+    }
+
+    function saveCustomPreset() {
+      const name = customPresetName?.value.trim() || "";
+      if (!name) {
+        customPresetName?.focus();
+        return;
+      }
+      const presets = readCustomPresets();
+      const existing = presets.find((preset) => preset.name.toLowerCase() === name.toLowerCase());
+      const id = existing?.id || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+      const entry = { id, name, config: collectFormSnapshot(), updatedAt: new Date().toISOString() };
+      const next = existing
+        ? presets.map((preset) => preset.id === existing.id ? entry : preset)
+        : [...presets, entry];
+      writeCustomPresets(next);
+      refreshCustomPresetOptions(id);
+      presetDialog?.close();
+      setOperationStatus(`Preset “${name}” saved locally.`);
+    }
+
+    function deleteSelectedCustomPreset() {
+      const value = presetSelect?.value || "";
+      if (!value.startsWith("custom:")) {
+        setOperationStatus("Select a custom preset to delete.", true);
+        return;
+      }
+      const id = value.slice("custom:".length);
+      writeCustomPresets(readCustomPresets().filter((preset) => preset.id !== id));
+      refreshCustomPresetOptions();
+      if (presetSelect) presetSelect.value = "";
+      setOperationStatus("Custom preset deleted.");
+    }
+
+    function encodeSharedConfig(config) {
+      const bytes = new TextEncoder().encode(JSON.stringify({ version: SHARE_CONFIG_VERSION, config }));
+      let binary = "";
+      for (const byte of bytes) binary += String.fromCharCode(byte);
+      return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+    }
+
+    function decodeSharedConfig(encoded) {
+      const normalized = encoded.replace(/-/g, "+").replace(/_/g, "/");
+      const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
+      const binary = atob(padded);
+      const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
+      const payload = JSON.parse(new TextDecoder().decode(bytes));
+      if (payload.version !== SHARE_CONFIG_VERSION || !payload.config) throw new Error("Unsupported share link");
+      return payload.config;
+    }
+
+    function createShareLink() {
+      const encoded = encodeSharedConfig(collectFormSnapshot());
+      const url = new URL(window.location.href);
+      url.hash = `config=${encoded}`;
+      if (url.toString().length > MAX_SHARE_URL_LENGTH) {
+        setOperationStatus("This configuration is too large for a share link. Save it as JSON instead.", true);
+        return;
+      }
+      if (shareConfigLink) shareConfigLink.value = url.toString();
+      shareDialog?.showModal();
+    }
+
+    function applySharedConfigFromUrl() {
+      const encoded = new URLSearchParams(window.location.hash.slice(1)).get("config");
+      if (!encoded) return;
+      try {
+        applyLoadedConfig(decodeSharedConfig(encoded));
+        setOperationStatus("Shared configuration loaded.");
+      } catch (error) {
+        setOperationStatus(`Share link error: ${error?.message || "Invalid configuration"}`, true);
+      }
+    }
+
+    async function repairCurrentConfig() {
+      if (!form || !repairConfigButton) return;
+      repairConfigButton.disabled = true;
+      setOperationStatus("Analyzing printability…");
+      try {
+        const response = await fetch("/repair-config", { method: "POST", body: new FormData(form) });
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload.error || "Repair failed");
+        applyLoadedConfig({ ...collectFormSnapshot(), ...payload.values });
+        pushHistorySnapshot();
+        setOperationStatus(payload.repairs.length ? payload.repairs.join(" ") : "No repairs were needed.");
+      } catch (error) {
+        setOperationStatus(`Repair error: ${error?.message || "Unknown error"}`, true);
+      } finally {
+        repairConfigButton.disabled = false;
+      }
+    }
+
+    async function exportBatch() {
+      const file = batchFileInput?.files?.[0];
+      if (!file || !confirmBatchExportButton) {
+        batchFileInput?.focus();
+        return;
+      }
+      confirmBatchExportButton.disabled = true;
+      setOperationStatus("Generating batch…");
+      try {
+        const data = new FormData();
+        data.append("batch_file", file);
+        const response = await fetch("/batch-generate", { method: "POST", body: data });
+        if (!response.ok) {
+          const payload = await response.json();
+          throw new Error(payload.error || "Batch generation failed");
+        }
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = "planter_batch.zip";
+        document.body.append(link);
+        link.click();
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        batchDialog?.close();
+        setOperationStatus("Batch ZIP generated.");
+      } catch (error) {
+        setOperationStatus(`Batch error: ${error?.message || "Unknown error"}`, true);
+      } finally {
+        confirmBatchExportButton.disabled = false;
+      }
+    }
 
     const LANGUAGE_OPTIONS = [
       { code: "en", label: "English" },
@@ -1667,7 +2038,7 @@
     const I18N_KEYS = [
       "title", "subtitle", "languageLabel", "presetPlaceholder", "applyPreset",
       "exportStl", "export3mf", "loadJson", "saveJson",
-      "menuDimensions", "menuShape", "menuTexture", "menuMaterial",
+      "menuDimensions", "menuShape", "menuTexture", "menuText", "menuMaterial",
       "potDiameter", "clearance", "height", "wallThickness", "baseThickness", "includeBottom", "includeBottomHint",
       "drainHoleDiameter", "drainHoleHint", "taper", "rimLip",
       "shapeTypeLabel", "shapeHint", "polygonSided", "starShape", "ellipseShape", "roundedSquareShape", "diamondShape",
@@ -1681,6 +2052,7 @@
       "flatGroup", "noneOption", "imageDisplacementOption",
       "linearGroup", "ringsOption", "microRingsOption", "spiralOption", "braidOption",
       "patternedGroup", "gridOption", "hexCellOption", "hammeredOption",
+      "textContentLabel", "textContentHint", "textHeightLabel", "textDepthLabel", "textPositionLabel", "textPositionHint",
       "materialStyleLabel",
       "stoneConcreteGroup", "lightConcreteOption", "darkStoneOption", "sandstoneOption", "slateFinishOption", "terrazzo",
       "basaltOption", "weatheredConcreteOption",
@@ -1708,6 +2080,7 @@
         "Dimensions & Bottom",
         "Shape & Twist",
         "Texture & Displacement",
+        "Text & Engraving",
         "Material Preview Style",
         "Pot diameter (mm)",
         "Clearance (mm)",
@@ -1772,6 +2145,12 @@
         "Grid",
         "Hex Cell",
         "Hammered",
+        "Text content",
+        "Leave empty to skip engraving. Max 50 characters.",
+        "Text height (mm)",
+        "Engraving depth (mm)",
+        "Text position height (mm)",
+        "Leave empty to center text vertically on planter.",
         "Material style",
         "Stone & Concrete",
         "Light concrete",
@@ -5719,6 +6098,15 @@
     function applySelectedPreset() {
       const key = presetSelect?.value;
       if (!key) return;
+      if (key.startsWith("custom:")) {
+        const id = key.slice("custom:".length);
+        const custom = readCustomPresets().find((preset) => preset.id === id);
+        if (!custom) return;
+        applyLoadedConfig(custom.config);
+        pushHistorySnapshot();
+        setOperationStatus(`Preset “${custom.name}” loaded.`);
+        return;
+      }
       const preset = PRESETS[key];
       if (!preset) return;
       const fdmPreset = normalizePresetForFdm(preset);
@@ -5749,7 +6137,13 @@
     
     const inputNames = [
       "pot_diameter", "clearance", "height", "wall", "base", "taper", "rim_lip", "drain_hole_diameter",
-      "include_bottom", "shape_type", "star_inner_ratio", "shape_aspect_ratio", "shape_roundness", "shape_wave_depth", "shape_wave_count", "texture_type", "texture_strength", "texture_scale", "texture_scale_u", "texture_scale_v", "texture_offset_u", "texture_offset_v", "texture_rotation", "texture_displacement_mode", "texture_gray_black", "texture_gray_white", "texture_gray_midpoint", "texture_gray_invert", "middle_inbound_turns", "middle_inbound_z", "z_rotation", "material_type", "sections"
+      "drainage_pattern", "drainage_hole_count", "drainage_spacing", "include_bottom", "shape_type", "star_inner_ratio",
+      "shape_aspect_ratio", "shape_roundness", "shape_wave_depth", "shape_wave_count", "texture_type", "texture_strength",
+      "texture_scale", "texture_scale_u", "texture_scale_v", "texture_offset_u", "texture_offset_v", "texture_rotation",
+      "texture_displacement_mode", "texture_gray_black", "texture_gray_white", "texture_gray_midpoint", "texture_gray_invert",
+      "middle_inbound_turns", "middle_inbound_z", "z_rotation", "material_type", "sections", "print_profile",
+      "nozzle_diameter", "layer_height", "auto_repair", "text_content", "text_mode", "text_height", "text_depth",
+      "text_position_z", "text_rotation_z"
     ];
     const inputs = Object.fromEntries(inputNames.map((name) => [name, form?.querySelector(`[name='${name}']`)]));
 
@@ -5896,14 +6290,18 @@
       const sections = Number(inputs.sections?.value || 0);
       const drain = Number(inputs.drain_hole_diameter?.value || 0);
       const includeBottom = !!inputs.include_bottom?.checked;
+      const nozzle = Number(inputs.nozzle_diameter?.value || 0.4);
+      const layerHeight = Number(inputs.layer_height?.value || 0.2);
+      const minimumFeature = nozzle * 3;
 
-      if (wall > 0 && wall < 1.2) warnings.push("Wall thickness below 1.2 mm can be fragile on a 0.4 mm nozzle.");
-      if (includeBottom && base > 0 && base < 1.2) warnings.push("Base thickness below 1.2 mm may lead to weak bottoms.");
+      if (wall > 0 && wall < minimumFeature) warnings.push(`Wall thickness below ${minimumFeature.toFixed(2)} mm can be fragile on a ${nozzle} mm nozzle.`);
+      if (includeBottom && base > 0 && base < minimumFeature) warnings.push(`Base thickness below ${minimumFeature.toFixed(2)} mm may lead to weak bottoms.`);
       if (Math.abs(taper) > 5) warnings.push("High taper can introduce difficult overhangs.");
       if (wall > 0 && textureStrength > wall * 0.65) warnings.push("Texture strength is high relative to wall thickness.");
       if (wall > 0 && (height / wall) > 70) warnings.push("Tall/slender profile may wobble during print.");
       if (sections > 220) warnings.push("Very high section count increases slicer complexity.");
-      if (includeBottom && drain > 0 && drain < 1.2) warnings.push("Drain hole is very small and may close during printing.");
+      if (includeBottom && drain > 0 && drain < minimumFeature) warnings.push("Drain hole is very small and may close during printing.");
+      if (layerHeight > nozzle * 0.6) warnings.push("Layer height is high relative to nozzle diameter.");
 
       const diagnosticsText = warnings.length
         ? (`Printability warnings:\n- ${warnings.join("\n- ")}`)
@@ -5953,6 +6351,7 @@
     let camera = null;
     let controls = null;
     let modelMesh = null;
+    let previewFeatureGroup = null;
     let ambient = null;
     let axisLabelSprites = [];
     let boundingBoxHelper = null;
@@ -6013,9 +6412,11 @@
       const heightValue = Math.max(0, numberValue("height"));
       inputs.middle_inbound_z.min = "0";
       inputs.middle_inbound_z.max = String(heightValue);
-      const current = Number(inputs.middle_inbound_z.value);
+      const rawValue = inputs.middle_inbound_z.value.trim();
+      if (!rawValue) return;
+      const current = Number(rawValue);
       if (!Number.isFinite(current)) {
-        inputs.middle_inbound_z.value = String((heightValue * 0.5).toFixed(1));
+        inputs.middle_inbound_z.value = "";
         return;
       }
       if (current < 0) {
@@ -6704,6 +7105,12 @@
       };
       const direction = (vectors[viewName] || vectors.iso).clone().normalize();
 
+      const hiddenAxisByView = { front: 1, side: 0, top: 2 };
+      const hiddenAxis = hiddenAxisByView[viewName];
+      axisLabelSprites.forEach((sprite, index) => {
+        sprite.visible = index !== hiddenAxis;
+      });
+
       camera.position.copy(target).addScaledVector(direction, distance);
       controls.target.copy(target);
       controls.update();
@@ -6779,7 +7186,8 @@
       const zLip = Math.max(zBase, zTop - wall);
       const rInnerAtBase = innerDiameter / 2.0;
       const rHole = drainHoleDiameter / 2;
-      const hasDrainHole = includeBottom && rHole > 0 && rHole < rInnerAtBase;
+      const centerDrainage = (inputs.drainage_pattern?.value || "center") === "center";
+      const hasDrainHole = includeBottom && centerDrainage && rHole > 0 && rHole < rInnerAtBase;
 
       const rInner = (z) => rInnerAtBase + (taper * (z - zBase));
       const rOuter = (z) => rInner(z) + wall;
@@ -6845,10 +7253,14 @@
       const base = numberValue("base");
       const middleInboundTurns = Math.max(0, Math.min(50, numberValue("middle_inbound_turns")));
       const height = Math.max(1e-6, numberValue("height"));
-      const middleInboundZ = Math.max(0, Math.min(height, numberValue("middle_inbound_z")));
+      const middleInboundValue = inputs.middle_inbound_z?.value.trim() || "";
+      const middleInboundZ = middleInboundValue
+        ? Math.max(0, Math.min(height, Number(middleInboundValue)))
+        : height * 0.5;
       const zRotationDeg = numberValue("z_rotation");
       const drainHoleDiameter = numberValue("drain_hole_diameter") || 0;
-      const hasDrainHole = includeBottom && base > 0 && drainHoleDiameter > 0;
+      const centerDrainage = (inputs.drainage_pattern?.value || "center") === "center";
+      const hasDrainHole = includeBottom && centerDrainage && base > 0 && drainHoleDiameter > 0;
       const vertices = [];
       const uvs = [];
       const indices = [];
@@ -6922,6 +7334,16 @@
             indices.push(a, b, c, a, c, d);
           }
         }
+      } else if (!includeBottom && profile.length >= 2) {
+        const outerBottomRing = 0;
+        const innerBottomRing = profile.length - 1;
+        for (let j = 0; j < pointCount; j++) {
+          const a = outerBottomRing * pointCount + j;
+          const b = outerBottomRing * pointCount + ((j + 1) % pointCount);
+          const c = innerBottomRing * pointCount + ((j + 1) % pointCount);
+          const d = innerBottomRing * pointCount + j;
+          indices.push(a, d, c, a, c, b);
+        }
       }
 
       const geometry = new THREE.BufferGeometry();
@@ -6930,6 +7352,151 @@
       geometry.setIndex(indices);
       geometry.computeVertexNormals();
       return geometry;
+    }
+
+    function drainagePreviewPositions() {
+      const pattern = inputs.drainage_pattern?.value || "center";
+      const count = Math.max(1, Math.min(32, Math.floor(numberValue("drainage_hole_count"))));
+      const spacing = Math.max(0.5, numberValue("drainage_spacing"));
+      if (pattern === "center") return [[0, 0]];
+      if (pattern === "radial") {
+        return Array.from({ length: count }, (_, index) => {
+          const angle = (Math.PI * 2 * index) / count;
+          return [spacing * Math.cos(angle), spacing * Math.sin(angle)];
+        });
+      }
+      if (pattern === "grid") {
+        const side = Math.ceil(Math.sqrt(count));
+        const offset = (side - 1) * 0.5;
+        const points = [];
+        for (let row = 0; row < side; row++) {
+          for (let column = 0; column < side; column++) {
+            points.push([(column - offset) * spacing, (row - offset) * spacing]);
+          }
+        }
+        points.sort((left, right) => ((left[0] ** 2 + left[1] ** 2) - (right[0] ** 2 + right[1] ** 2)));
+        return points.slice(0, count);
+      }
+      const points = [[0, 0]];
+      for (let ring = 1; points.length < count; ring++) {
+        for (let q = -ring; q <= ring; q++) {
+          for (let r = -ring; r <= ring; r++) {
+            if (Math.max(Math.abs(q), Math.abs(r), Math.abs(-q - r)) !== ring) continue;
+            points.push([spacing * (q + r * 0.5), spacing * Math.sqrt(3) * 0.5 * r]);
+          }
+        }
+      }
+      points.sort((left, right) => ((left[0] ** 2 + left[1] ** 2) - (right[0] ** 2 + right[1] ** 2)));
+      return points.slice(0, count);
+    }
+
+    function disposePreviewFeatures() {
+      if (!scene || !previewFeatureGroup) return;
+      scene.remove(previewFeatureGroup);
+      previewFeatureGroup.traverse((node) => {
+        node.geometry?.dispose?.();
+        const materials = Array.isArray(node.material) ? node.material : [node.material];
+        for (const material of materials) {
+          material?.map?.dispose?.();
+          material?.dispose?.();
+        }
+      });
+      previewFeatureGroup = null;
+    }
+
+    function createPreviewFeatures() {
+      const group = new THREE.Group();
+      group.userData.excludeFromStats = true;
+      const includeBottom = !!inputs.include_bottom?.checked;
+      const drainDiameter = numberValue("drain_hole_diameter") || 0;
+      if (includeBottom && drainDiameter > 0) {
+        const base = numberValue("base");
+        const holeMaterial = new THREE.MeshBasicMaterial({
+          color: 0x111827,
+          transparent: true,
+          opacity: 0.88,
+          side: THREE.DoubleSide,
+          depthWrite: false,
+        });
+        for (const [x, y] of drainagePreviewPositions()) {
+          const hole = new THREE.Mesh(
+            new THREE.CircleGeometry(drainDiameter * 0.5, 32),
+            holeMaterial.clone(),
+          );
+          hole.position.set(x, y, base + 0.08);
+          hole.userData.excludeFromStats = true;
+          group.add(hole);
+        }
+      }
+
+      const text = inputs.text_content?.value.trim() || "";
+      const textMode = inputs.text_mode?.value || "none";
+      if (text && textMode !== "none") {
+        const textHeight = Math.max(1, numberValue("text_height"));
+        const textDepth = Math.max(0.1, numberValue("text_depth"));
+        const height = numberValue("height");
+        const textZValue = inputs.text_position_z?.value.trim() || "";
+        const textZ = textZValue ? clamp(Number(textZValue), 0, height) : height * 0.5;
+        const localAngle = (numberValue("text_rotation_z") * Math.PI) / 180;
+        const middleValue = inputs.middle_inbound_z?.value.trim() || "";
+        const middleZ = middleValue ? clamp(Number(middleValue), 0, height) : height * 0.5;
+        const inboundAngle = Math.PI * 2 * numberValue("middle_inbound_turns") * ((textZ - middleZ) / height);
+        const twistAngle = (numberValue("z_rotation") * Math.PI / 180) * (textZ / height);
+        const angle = localAngle + inboundAngle + twistAngle;
+        const innerRadius = (numberValue("pot_diameter") + 2 * numberValue("clearance")) * 0.5;
+        const zBase = includeBottom ? numberValue("base") : 0;
+        const shape = currentShapeConfig();
+        const radiusBase = innerRadius + numberValue("wall") + Math.tan(numberValue("taper") * Math.PI / 180) * (textZ - zBase);
+        const radius = Math.max(
+          0.1,
+          (radiusBase + textureOffset(textZ, localAngle)) * shapeRadiusFactor(localAngle, shape),
+        );
+
+        const labelCanvas = document.createElement("canvas");
+        labelCanvas.height = 224;
+        const measureContext = labelCanvas.getContext("2d");
+        measureContext.font = "700 166px Georgia, serif";
+        const measured = Math.max(1, measureContext.measureText(text).width);
+        labelCanvas.width = Math.min(2048, Math.ceil(measured + 48));
+        const context = labelCanvas.getContext("2d");
+        context.clearRect(0, 0, labelCanvas.width, labelCanvas.height);
+        context.font = "700 166px Georgia, serif";
+        context.textAlign = "center";
+        context.textBaseline = "middle";
+        context.lineJoin = "round";
+        context.strokeStyle = textMode === "engrave" ? "rgba(12,18,28,0.96)" : "rgba(255,255,255,0.98)";
+        context.lineWidth = 13;
+        context.strokeText(text, labelCanvas.width / 2, labelCanvas.height / 2 + 7);
+        context.fillStyle = textMode === "engrave" ? "rgba(36,45,58,0.96)" : "rgba(226,232,240,0.98)";
+        context.fillText(text, labelCanvas.width / 2, labelCanvas.height / 2 + 7);
+        const textWidth = Math.min(radius * 1.6, textHeight * measured / 166);
+        const texture = new THREE.CanvasTexture(labelCanvas);
+        texture.colorSpace = THREE.SRGBColorSpace;
+        const textPlane = new THREE.Mesh(
+          new THREE.PlaneGeometry(textWidth, textHeight),
+          new THREE.MeshStandardMaterial({
+            map: texture,
+            transparent: true,
+            roughness: textMode === "engrave" ? 0.9 : 0.48,
+            metalness: 0.02,
+            depthTest: false,
+            depthWrite: false,
+            side: THREE.DoubleSide,
+          }),
+        );
+        const radial = new THREE.Vector3(Math.cos(angle), Math.sin(angle), 0);
+        const tangent = new THREE.Vector3(-Math.sin(angle), Math.cos(angle), 0);
+        const vertical = new THREE.Vector3(0, 0, 1);
+        textPlane.setRotationFromMatrix(new THREE.Matrix4().makeBasis(tangent, vertical, radial));
+        const reliefOffset = textMode === "emboss" ? Math.max(0.12, textDepth * 0.42) : 0.04;
+        textPlane.position.copy(radial.multiplyScalar(radius + reliefOffset));
+        textPlane.position.z = textZ;
+        textPlane.renderOrder = 5;
+        textPlane.userData.excludeFromStats = true;
+        group.add(textPlane);
+      }
+      canvas.dataset.previewFeatureCount = String(group.children.length);
+      return group;
     }
 
     function generateTexture(type) {
@@ -7528,6 +8095,7 @@
 
     function setModel() {
       try {
+        disposePreviewFeatures();
         if (modelMesh) {
           scene.remove(modelMesh);
           modelMesh.geometry.dispose();
@@ -7538,6 +8106,8 @@
         const material = createMaterial();
         modelMesh = new THREE.Mesh(geometry, material);
         scene.add(modelMesh);
+        previewFeatureGroup = createPreviewFeatures();
+        scene.add(previewFeatureGroup);
         const box = new THREE.Box3().setFromObject(modelMesh);
         lastModelBox = box.clone();
         updatePrinterBedVisual(box);
@@ -7556,6 +8126,7 @@
         let polyCount = 0;
         let vertexCount = 0;
         scene.traverse((obj) => {
+          if (obj.userData?.excludeFromStats || obj.parent?.userData?.excludeFromStats) return;
           if (obj instanceof THREE.Mesh && obj.geometry) {
             if (obj.geometry.index) {
               polyCount += obj.geometry.index.count / 3;
@@ -7648,6 +8219,18 @@
       }
     }
 
+    function applyPrintProfileDefaults() {
+      const defaults = {
+        fine: [0.25, 0.12],
+        standard: [0.4, 0.2],
+        draft: [0.6, 0.3],
+      };
+      const selected = defaults[inputs.print_profile?.value];
+      if (!selected || !inputs.nozzle_diameter || !inputs.layer_height) return;
+      inputs.nozzle_diameter.value = String(selected[0]);
+      inputs.layer_height.value = String(selected[1]);
+    }
+
     function onWindowResize() {
       if (!renderer) return;
       resizeRenderer();
@@ -7702,6 +8285,7 @@
       if (element) {
         element.addEventListener("input", updatePreview);
         element.addEventListener("change", () => {
+          if (element === inputs.print_profile) applyPrintProfileDefaults();
           syncMaterialThumbSelection();
           updatePrintabilityDiagnostics();
           pushHistorySnapshot();
@@ -7756,9 +8340,41 @@
       presetSelect.addEventListener("change", applySelectedPreset);
     }
 
+    if (saveCustomPresetButton && presetDialog) {
+      saveCustomPresetButton.addEventListener("click", () => {
+        if (customPresetName) customPresetName.value = "";
+        presetDialog.showModal();
+        customPresetName?.focus();
+      });
+    }
+    confirmSavePresetButton?.addEventListener("click", (event) => {
+      event.preventDefault();
+      saveCustomPreset();
+    });
+    deleteCustomPresetButton?.addEventListener("click", deleteSelectedCustomPreset);
+    shareConfigButton?.addEventListener("click", createShareLink);
+    copyShareLinkButton?.addEventListener("click", async (event) => {
+      event.preventDefault();
+      try {
+        await navigator.clipboard.writeText(shareConfigLink?.value || "");
+        setOperationStatus("Share link copied.");
+        shareDialog?.close();
+      } catch {
+        shareConfigLink?.select();
+        setOperationStatus("Select and copy the share link.");
+      }
+    });
+    batchExportButton?.addEventListener("click", () => batchDialog?.showModal());
+    confirmBatchExportButton?.addEventListener("click", exportBatch);
+    repairConfigButton?.addEventListener("click", repairCurrentConfig);
+
     populateMaterialStyleOptions();
     populateLanguageOptions();
+    refreshCustomPresetOptions();
     updatePrintabilityDiagnostics();
+    applySharedConfigFromUrl();
+    historyState.stack = [];
+    historyState.index = -1;
     pushHistorySnapshot();
 
     if (languageSelect) {
