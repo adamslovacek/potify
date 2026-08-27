@@ -13,7 +13,7 @@ import trimesh
 from lxml import html as lxml_html
 
 import planter_generator.web as web
-from planter_generator.model import DrainagePattern, PrintProfile, TextMode
+from planter_generator.model import DrainagePattern, ProfileType, PrintProfile, RimStyle, TextMode
 from planter_generator.web import create_app
 
 
@@ -111,6 +111,13 @@ def test_generate_propagates_new_geometry_and_print_fields(monkeypatch):
             "layer_height": "0.3",
             "text_content": "POT",
             "text_mode": "engrave",
+            "profile_type": "waist",
+            "profile_depth": "8",
+            "profile_position": "0.6",
+            "rim_style": "band",
+            "foot_ring": "2",
+            "foot_height": "7",
+            "shape_relief": "6",
         },
     )
 
@@ -121,6 +128,11 @@ def test_generate_propagates_new_geometry_and_print_fields(monkeypatch):
     assert config.print_profile == PrintProfile.DRAFT
     assert config.nozzle_diameter_mm == 0.6
     assert config.text_mode == TextMode.ENGRAVE
+    assert config.profile_type == ProfileType.WAIST
+    assert config.profile_depth_mm == 8.0
+    assert config.rim_style == RimStyle.BAND
+    assert config.foot_ring_mm == 2.0
+    assert config.shape_relief_mm == 6.0
 
 
 def test_repair_config_returns_form_values_and_actions():
@@ -267,6 +279,13 @@ def test_index_exposes_validation_constraints_and_live_statuses():
         "auto_repair",
         "text_mode",
         "text_rotation_z",
+        "profile_type",
+        "profile_depth",
+        "profile_position",
+        "rim_style",
+        "foot_ring",
+        "foot_height",
+        "shape_relief",
     ):
         assert document.xpath(f'//*[@name="{name}"]'), name
 
@@ -280,6 +299,9 @@ def test_index_exposes_validation_constraints_and_live_statuses():
         "share-dialog",
         "batch-dialog",
         "operation-status",
+        "open-style-gallery-btn",
+        "style-dialog",
+        "style-gallery",
     ):
         assert document.get_element_by_id(element_id) is not None
 

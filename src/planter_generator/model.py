@@ -34,6 +34,7 @@ class TextureType(str, Enum):
 
 
 class ShapeType(str, Enum):
+    CIRCLE = "circle"
     POLYGON = "polygon"
     STAR = "star"
     ELLIPSE = "ellipse"
@@ -46,6 +47,20 @@ class ShapeType(str, Enum):
     FLOWER = "flower"
     TEARDROP = "teardrop"
     LENS = "lens"
+
+
+class ProfileType(str, Enum):
+    STRAIGHT = "straight"
+    WAIST = "waist"
+    BELLY = "belly"
+    FLARE = "flare"
+    SHOULDER = "shoulder"
+
+
+class RimStyle(str, Enum):
+    PLAIN = "plain"
+    FLARED = "flared"
+    BAND = "band"
 
 
 class DisplacementMode(str, Enum):
@@ -92,6 +107,12 @@ class GeneratorConfig:
     include_bottom: bool = True
     taper_deg: float = 1.9
     rim_lip_mm: float = 1.4
+    rim_style: RimStyle = RimStyle.FLARED
+    profile_type: ProfileType = ProfileType.STRAIGHT
+    profile_depth_mm: float = 0.0
+    profile_position: float = 0.55
+    foot_ring_mm: float = 0.0
+    foot_height_mm: float = 8.0
     texture_type: TextureType = TextureType.BRAID
     texture_strength_mm: float = 0.9
     texture_scale: float = 2.4
@@ -117,6 +138,7 @@ class GeneratorConfig:
     shape_roundness: float = 0.35
     shape_wave_depth: float = 0.6
     shape_wave_count: int = 8
+    shape_relief_mm: float = 4.0
     sections: int = 7
     height_steps: int = 64
     print_profile: PrintProfile = PrintProfile.STANDARD
@@ -171,6 +193,16 @@ class GeneratorConfig:
             raise ValueError("taper_deg must be in range (-10, 10)")
         if self.rim_lip_mm < 0:
             raise ValueError("rim_lip_mm must be >= 0")
+        if self.profile_depth_mm < 0 or self.profile_depth_mm > 30:
+            raise ValueError("profile_depth_mm must be in range [0, 30]")
+        if self.profile_position < 0.1 or self.profile_position > 0.9:
+            raise ValueError("profile_position must be in range [0.1, 0.9]")
+        if self.foot_ring_mm < 0 or self.foot_ring_mm > 20:
+            raise ValueError("foot_ring_mm must be in range [0, 20]")
+        if self.foot_ring_mm > 0 and (
+            self.foot_height_mm <= 0 or self.foot_height_mm > self.height_mm
+        ):
+            raise ValueError("foot_height_mm must be in range (0, height_mm]")
         if self.texture_strength_mm < 0:
             raise ValueError("texture_strength_mm must be >= 0")
         if self.texture_scale <= 0:
@@ -210,6 +242,8 @@ class GeneratorConfig:
             raise ValueError("shape_wave_depth must be in range [0, 0.95]")
         if self.shape_wave_count < 2 or self.shape_wave_count > 24:
             raise ValueError("shape_wave_count must be in range [2, 24]")
+        if self.shape_relief_mm < 0 or self.shape_relief_mm > 30:
+            raise ValueError("shape_relief_mm must be in range [0, 30]")
         if self.sections < 3:
             raise ValueError("sections must be >= 3")
         if self.sections > MAX_SECTIONS:
@@ -312,6 +346,11 @@ def _clamp(value: float, low: float, high: float) -> float:
     return max(low, min(high, value))
 
 
+def _smoothstep(value: float) -> float:
+    value = _clamp(value, 0.0, 1.0)
+    return value * value * (3.0 - (2.0 * value))
+
+
 def _superellipse_radius_factor(theta: float, aspect_ratio: float, exponent: float) -> float:
     aspect = max(1e-6, aspect_ratio)
     denom = ((abs(cos(theta)) / aspect) ** exponent) + (abs(sin(theta)) ** exponent)
@@ -362,26 +401,82 @@ def _shape_radius_factor(theta: float, config: GeneratorConfig) -> float:
 def _shape_point_count(config: GeneratorConfig) -> int:
     sections = max(3, int(config.sections))
     if config.shape_type == ShapeType.POLYGON:
-        return sections
+        return sections * max(1, ceil(48 / sections))
     if config.shape_type == ShapeType.STAR:
-        return sections * 2
+        anchor_count = sections * 2
+        return anchor_count * max(1, ceil(48 / anchor_count))
     base_count = max(48, sections * 8, int(config.shape_wave_count) * 10)
     if config.shape_type in {ShapeType.GEAR, ShapeType.CLOVER, ShapeType.SCALLOP, ShapeType.FLOWER}:
         return max(60, base_count)
     return base_count
 
 
+def _polygon_radius_factor(
+    theta: float,
+    vertex_count: int,
+    inner_ratio: float | None = None,
+) -> float:
+    sector = (2.0 * pi) / vertex_count
+    normalized = theta % (2.0 * pi)
+    edge_index = min(vertex_count - 1, int(normalized / sector))
+    next_index = (edge_index + 1) % vertex_count
+    angle0 = edge_index * sector
+    angle1 = (edge_index + 1) * sector
+
+    radius0 = 1.0 if inner_ratio is None or edge_index % 2 == 0 else inner_ratio
+    radius1 = 1.0 if inner_ratio is None or next_index % 2 == 0 else inner_ratio
+    point0 = (radius0 * cos(angle0), radius0 * sin(angle0))
+    point1 = (radius1 * cos(angle1), radius1 * sin(angle1))
+    edge = (point1[0] - point0[0], point1[1] - point0[1])
+    direction = (cos(theta), sin(theta))
+    denominator = (direction[0] * edge[1]) - (direction[1] * edge[0])
+    numerator = (point0[0] * edge[1]) - (point0[1] * edge[0])
+    if abs(denominator) < 1e-9:
+        return radius0
+    return max(0.05, numerator / denominator)
+
+
 def _get_point_angle_and_radius_factor(i: int, point_count: int, config: GeneratorConfig) -> tuple[float, float]:
-    if config.shape_type == ShapeType.POLYGON:
-        angle = (i / point_count) * (2.0 * pi)
-        return angle, 1.0
-    if config.shape_type == ShapeType.STAR:
-        angle = (i / point_count) * (2.0 * pi)
-        is_inner = (i % 2) == 1
-        radius_factor = config.star_inner_ratio if is_inner else 1.0
-        return angle, radius_factor
     angle = (i / point_count) * (2.0 * pi)
+    if config.shape_type == ShapeType.POLYGON:
+        return angle, _polygon_radius_factor(angle, max(3, int(config.sections)))
+    if config.shape_type == ShapeType.STAR:
+        return angle, _polygon_radius_factor(
+            angle,
+            max(3, int(config.sections)) * 2,
+            config.star_inner_ratio,
+        )
     return angle, _shape_radius_factor(angle, config)
+
+
+def _profile_radius_offset(z: float, config: GeneratorConfig) -> float:
+    height = max(1e-6, config.height_mm)
+    ratio = _clamp(z / height, 0.0, 1.0)
+    position = _clamp(config.profile_position, 0.1, 0.9)
+    if ratio <= position:
+        bell = _smoothstep(ratio / position)
+    else:
+        bell = _smoothstep((1.0 - ratio) / (1.0 - position))
+
+    depth = config.profile_depth_mm
+    profile_offset = 0.0
+    if config.profile_type == ProfileType.WAIST:
+        profile_offset = depth * (1.0 - bell)
+    elif config.profile_type == ProfileType.BELLY:
+        profile_offset = depth * bell
+    elif config.profile_type == ProfileType.FLARE:
+        profile_offset = depth * _smoothstep(ratio)
+    elif config.profile_type == ProfileType.SHOULDER:
+        rise = _smoothstep(ratio / position)
+        settle = 1.0 - (0.35 * _smoothstep((ratio - position) / (1.0 - position)))
+        profile_offset = depth * rise * settle
+
+    foot_offset = 0.0
+    if config.foot_ring_mm > 0 and z < config.foot_height_mm:
+        foot_offset = config.foot_ring_mm * (
+            1.0 - _smoothstep(z / config.foot_height_mm)
+        )
+    return profile_offset + foot_offset
 
 
 def _outer_base_radius(z: float, config: GeneratorConfig) -> float:
@@ -400,16 +495,19 @@ def _outer_base_radius(z: float, config: GeneratorConfig) -> float:
 
     r_o0 = r_outer(0.0)
     r_ob = r_outer(z_base)
-    r_ol = r_outer(z_lip)
-    r_ot = r_outer(z_top)
-    r_lt = r_ot + config.rim_lip_mm
-    r_ll = r_ol + config.rim_lip_mm
-
     if z <= z_base:
-        return _lerp(0.0, r_o0, z_base, r_ob, z)
-    if z <= z_lip:
-        return _lerp(z_base, r_ob, z_lip, r_ol, z)
-    return _lerp(z_lip, r_ll, z_top, r_lt, z)
+        body_radius = _lerp(0.0, r_o0, z_base, r_ob, z)
+    else:
+        body_radius = _lerp(z_base, r_ob, z_top, r_outer(z_top), z)
+
+    rim_offset = 0.0
+    if config.rim_style != RimStyle.PLAIN and z > z_lip:
+        rim_progress = (z - z_lip) / max(1e-6, z_top - z_lip)
+        if config.rim_style == RimStyle.BAND:
+            rim_progress = min(1.0, rim_progress * 4.0)
+        rim_offset = config.rim_lip_mm * _smoothstep(rim_progress)
+
+    return body_radius + rim_offset + _profile_radius_offset(z, config)
 
 
 def _inner_base_radius(z: float, config: GeneratorConfig) -> float:
@@ -433,23 +531,125 @@ def _shape_ring_outline(
         _middle_inbound_angle(z, config.height_mm, config)
         + _z_twist_angle(z, config.height_mm, config)
     )
-    base_radius = (
-        _inner_base_radius(z, config)
-        if inner
-        else _outer_base_radius(z, config)
-    )
+    inner_radius = _inner_base_radius(z, config)
+    circle_mesh_radius = inner_radius / max(1e-6, cos(pi / point_count))
+    if inner:
+        return [
+            (
+                circle_mesh_radius * cos(((index / point_count) * (2.0 * pi)) + rotation),
+                circle_mesh_radius * sin(((index / point_count) * (2.0 * pi)) + rotation),
+            )
+            for index in range(point_count)
+        ]
+
+    base_radius = _outer_base_radius(z, config)
+    samples = [
+        _get_point_angle_and_radius_factor(index, point_count, config)
+        for index in range(point_count)
+    ]
+    factors = [radius_factor for _, radius_factor in samples]
+    factor_min = min(factors)
+    factor_range = max(factors) - factor_min
     points: list[tuple[float, float]] = []
-    for index in range(point_count):
-        theta, radius_factor = _get_point_angle_and_radius_factor(
-            index,
-            point_count,
-            config,
+    for theta, radius_factor in samples:
+        texture_offset = _texture_offset(z, theta, config)
+        relief = (
+            (radius_factor - factor_min) / factor_range
+            if factor_range > 1e-9
+            else 0.0
         )
-        texture_offset = 0.0 if inner else _texture_offset(z, theta, config)
-        radius = max(0.05, (base_radius + texture_offset) * radius_factor)
+        radius = max(
+            0.05,
+            base_radius + (config.shape_relief_mm * relief) + texture_offset,
+        )
         world_theta = theta + rotation
         points.append((radius * cos(world_theta), radius * sin(world_theta)))
+
+    wall_allowance = base_radius - inner_radius
+    minimum_outer_radius = circle_mesh_radius + wall_allowance
+    actual_minimum_radius = _outline_minimum_radius(points)
+    if actual_minimum_radius < minimum_outer_radius:
+        radial_offset = minimum_outer_radius - actual_minimum_radius
+        adjusted: list[tuple[float, float]] = []
+        for x, y in points:
+            radius = max(0.05, sqrt((x * x) + (y * y)))
+            scale = (radius + radial_offset) / radius
+            adjusted.append((x * scale, y * scale))
+        points = adjusted
     return points
+
+
+def _outline_minimum_radius(points: list[tuple[float, float]]) -> float:
+    minimum = float("inf")
+    for index, (x0, y0) in enumerate(points):
+        x1, y1 = points[(index + 1) % len(points)]
+        dx = x1 - x0
+        dy = y1 - y0
+        length_squared = (dx * dx) + (dy * dy)
+        if length_squared <= 1e-12:
+            distance = sqrt((x0 * x0) + (y0 * y0))
+        else:
+            t = _clamp(-((x0 * dx) + (y0 * dy)) / length_squared, 0.0, 1.0)
+            nearest_x = x0 + (t * dx)
+            nearest_y = y0 + (t * dy)
+            distance = sqrt((nearest_x * nearest_x) + (nearest_y * nearest_y))
+        minimum = min(minimum, distance)
+    return minimum
+
+
+def _outline_radius_at_angle(
+    points: list[tuple[float, float]],
+    angle: float,
+) -> float:
+    direction = (cos(angle), sin(angle))
+    intersections: list[float] = []
+    for index, point0 in enumerate(points):
+        point1 = points[(index + 1) % len(points)]
+        edge = (point1[0] - point0[0], point1[1] - point0[1])
+        denominator = (direction[0] * edge[1]) - (direction[1] * edge[0])
+        if abs(denominator) < 1e-9:
+            continue
+        distance = ((point0[0] * edge[1]) - (point0[1] * edge[0])) / denominator
+        edge_ratio = ((point0[0] * direction[1]) - (point0[1] * direction[0])) / denominator
+        if distance >= 0 and -1e-9 <= edge_ratio <= 1.0 + 1e-9:
+            intersections.append(distance)
+    if not intersections:
+        raise RuntimeError("Failed to locate the planter surface at the text angle.")
+    return min(intersections)
+
+
+def _outline_front_radial_span(
+    points: list[tuple[float, float]],
+    angle: float,
+    tangent_limit: float,
+) -> tuple[float, float]:
+    radial = (cos(angle), sin(angle))
+    tangent = (-sin(angle), cos(angle))
+    candidates: list[float] = []
+    projected = [
+        (
+            (x * tangent[0]) + (y * tangent[1]),
+            (x * radial[0]) + (y * radial[1]),
+        )
+        for x, y in points
+    ]
+    for index, (tangent0, radial0) in enumerate(projected):
+        tangent1, radial1 = projected[(index + 1) % len(projected)]
+        if abs(tangent0) <= tangent_limit and radial0 > 0:
+            candidates.append(radial0)
+        delta = tangent1 - tangent0
+        if abs(delta) < 1e-9:
+            continue
+        for boundary in (-tangent_limit, tangent_limit):
+            ratio = (boundary - tangent0) / delta
+            if 0 <= ratio <= 1:
+                value = radial0 + (ratio * (radial1 - radial0))
+                if value > 0:
+                    candidates.append(value)
+    if not candidates:
+        radius = _outline_radius_at_angle(points, angle)
+        return radius, radius
+    return min(candidates), max(candidates)
 
 
 def _drainage_holes_fit_floor(
@@ -765,21 +965,10 @@ def _build_planter_mesh(config: GeneratorConfig) -> trimesh.Trimesh:
 
     point_count = _shape_point_count(config)
 
-    # Equivalent to linear_extrude(height=..., twist=...) around Z axis.
     outer_rings = []
     for z in z_levels:
-        radius_base = _outer_base_radius(z, config)
-        rotation_angle = _middle_inbound_angle(z, z_top, config)
-        z_twist = _z_twist_angle(z, z_top, config)
-        ring = []
-        for i in range(point_count):
-            theta, radius_factor = _get_point_angle_and_radius_factor(i, point_count, config)
-            offset = _texture_offset(z, theta, config)
-            ring_radius = max(0.05, (radius_base + offset) * radius_factor)
-            theta_rotated = theta + rotation_angle + z_twist
-            # Keep Z as the vertical axis; no X/Y axis rotations are applied.
-            ring.append((ring_radius * cos(theta_rotated), ring_radius * sin(theta_rotated), z))
-        outer_rings.append(ring)
+        outline = _shape_ring_outline(z, config, inner=False)
+        outer_rings.append([(x, y, z) for x, y in outline])
 
     inner_z_levels = sorted(set([
         z_base,
@@ -788,19 +977,8 @@ def _build_planter_mesh(config: GeneratorConfig) -> trimesh.Trimesh:
     ]))
     inner_rings = []
     for z in inner_z_levels:
-        radius = _inner_base_radius(z, config)
-        rotation_angle = _middle_inbound_angle(z, z_top, config)
-        z_twist = _z_twist_angle(z, z_top, config)
-        ring = []
-        for i in range(point_count):
-            theta, radius_factor = _get_point_angle_and_radius_factor(i, point_count, config)
-            inner_radius = radius * radius_factor
-            ring.append((
-                inner_radius * cos(theta + rotation_angle + z_twist),
-                inner_radius * sin(theta + rotation_angle + z_twist),
-                z,
-            ))
-        inner_rings.append(ring)
+        outline = _shape_ring_outline(z, config, inner=True)
+        inner_rings.append([(x, y, z) for x, y in outline])
 
     vertices: list[tuple[float, float, float]] = []
     for ring in outer_rings:
@@ -943,74 +1121,6 @@ def build_planter_sleeve(config: GeneratorConfig) -> trimesh.Trimesh:
         mesh = build_planter_sleeve(body_config)
         mesh = _apply_drainage_pattern(mesh, config)
         return engrave_text_on_planter(mesh, config)
-
-    if (
-        config.shape_type == ShapeType.POLYGON
-        and
-        config.texture_type == TextureType.NONE
-        and config.include_bottom
-        and config.middle_inbound_turns == 0
-        and config.z_rotation_deg == 0
-    ):
-        z_base = _effective_base_z(config)
-        z_top = config.height_mm
-        z_lip = max(z_base, z_top - config.wall_thickness_mm)
-
-        r_inner_at_base = config.inner_diameter_mm / 2.0
-        taper = tan(radians(config.taper_deg))
-
-        def r_inner(z: float) -> float:
-            return r_inner_at_base + (taper * (z - z_base))
-
-        def r_outer(z: float) -> float:
-            return r_inner(z) + config.wall_thickness_mm
-
-        r_o0 = r_outer(0.0)
-        r_ob = r_outer(z_base)
-        r_ol = r_outer(z_lip)
-        r_ot = r_outer(z_top)
-        r_il = r_inner(z_lip)
-        r_it = r_inner(z_top)
-        r_lt = r_ot + config.rim_lip_mm
-        r_ll = r_ol + config.rim_lip_mm
-
-        radii = [r_o0, r_ob, r_ol, r_ot, r_il, r_it, r_lt, r_ll]
-        if any(r <= 0 for r in radii):
-            raise ValueError(
-                "Invalid dimensions. Radii became non-positive; reduce negative taper or increase size."
-            )
-        if config.drain_hole_diameter_mm > 0:
-            r_hole_fast = config.drain_hole_diameter_mm / 2.0
-            profile = [
-                (r_hole_fast, 0.0),
-                (r_o0, 0.0),
-                (r_ob, z_base),
-                (r_ol, z_lip),
-                (r_ll, z_lip),
-                (r_lt, z_top),
-                (r_it, z_top),
-                (r_inner_at_base, z_base),
-                (r_hole_fast, z_base),
-                (r_hole_fast, 0.0),
-            ]
-        else:
-            profile = [
-                (0.0, 0.0),
-                (r_o0, 0.0),
-                (r_ob, z_base),
-                (r_ol, z_lip),
-                (r_ll, z_lip),
-                (r_lt, z_top),
-                (r_it, z_top),
-                (r_inner_at_base, z_base),
-                (0.0, z_base),
-                (0.0, 0.0),
-            ]
-        mesh = trimesh.creation.revolve(profile, sections=config.sections)
-        if not mesh.is_watertight:
-            raise RuntimeError("Generated mesh is not watertight.")
-        mesh = engrave_text_on_planter(mesh, config)
-        return mesh
 
     mesh = _build_planter_mesh(config)
     return engrave_text_on_planter(mesh, config)
@@ -1159,7 +1269,7 @@ def engrave_text_on_planter(
         xoff=-((min_x + max_x) * 0.5),
         yoff=-((min_y + max_y) * 0.5),
     )
-    min_x, _, max_x, _ = geometry.bounds
+    min_x, min_y, max_x, max_y = geometry.bounds
 
     text_z = (
         config.text_position_z_mm
@@ -1172,24 +1282,39 @@ def engrave_text_on_planter(
         + _middle_inbound_angle(text_z, config.height_mm, config)
         + _z_twist_angle(text_z, config.height_mm, config)
     )
-    outer_radius = (
-        _outer_base_radius(text_z, config)
-        + _texture_offset(text_z, local_theta, config)
-    ) * _shape_radius_factor(local_theta, config)
     half_width = (max_x - min_x) * 0.5
-    if half_width >= outer_radius * 0.9:
+    sample_heights = [
+        _clamp(
+            text_z + ((index / 4.0) - 0.5) * (max_y - min_y),
+            0.0,
+            config.height_mm,
+        )
+        for index in range(5)
+    ]
+    spans = [
+        _outline_front_radial_span(
+            _shape_ring_outline(sample_z, config, inner=False),
+            theta,
+            half_width,
+        )
+        for sample_z in sample_heights
+    ]
+    surface_min = min(span[0] for span in spans)
+    surface_max = max(span[1] for span in spans)
+    if half_width >= surface_min * 0.9:
         raise ValueError("text is too wide for the selected planter diameter")
-    sagitta = outer_radius - sqrt(max(1e-6, (outer_radius ** 2) - (half_width ** 2)))
+    sagitta = surface_min - sqrt(max(1e-6, (surface_min ** 2) - (half_width ** 2)))
     overlap = min(
         config.wall_thickness_mm * 0.75,
         max(0.35, sagitta + 0.25),
     )
-    radial_start = (
-        outer_radius - overlap
-        if config.text_mode == TextMode.EMBOSS
-        else outer_radius - config.text_depth_mm - overlap
-    )
-    radial_length = config.text_depth_mm + overlap + 0.15
+    if config.text_mode == TextMode.EMBOSS:
+        radial_start = surface_min - overlap
+        radial_end = surface_max + config.text_depth_mm + 0.15
+    else:
+        radial_start = surface_min - config.text_depth_mm - overlap
+        radial_end = surface_max + 0.15
+    radial_length = radial_end - radial_start
 
     polygons = [geometry] if geometry.geom_type == "Polygon" else list(geometry.geoms)
     text_meshes = [

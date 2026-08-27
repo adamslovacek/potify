@@ -1,7 +1,9 @@
 from pathlib import Path
+from math import sqrt
 import sys
 
 import pytest
+from shapely.geometry import Polygon
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
@@ -11,13 +13,17 @@ if str(SRC) not in sys.path:
 from planter_generator.model import (
     DrainagePattern,
     GeneratorConfig,
+    ProfileType,
     PrintProfile,
+    RimStyle,
     ShapeType,
     TextMode,
     TextureType,
     analyze_printability,
     build_planter_sleeve,
     repair_config_for_printability,
+    _outline_minimum_radius,
+    _shape_ring_outline,
 )
 
 
@@ -47,6 +53,7 @@ def make_config(**overrides):
         "shape_roundness": 0.35,
         "shape_wave_depth": 0.6,
         "shape_wave_count": 8,
+        "shape_relief_mm": 8.0,
         "sections": 7,
         "height_steps": 64,
         "drain_hole_diameter_mm": 0.0,
@@ -66,6 +73,76 @@ def test_short_model_uses_automatic_middle_inbound_position():
     config.validate()
 
     assert config.middle_inbound_z_mm is None
+
+
+def test_disabled_foot_ring_does_not_limit_short_model_height():
+    config = GeneratorConfig(
+        inner_diameter_mm=20.0,
+        height_mm=6.0,
+        base_thickness_mm=1.0,
+        foot_ring_mm=0.0,
+    )
+
+    config.validate()
+
+
+@pytest.mark.parametrize(
+    ("shape_type", "sections", "star_inner_ratio"),
+    [
+        (ShapeType.POLYGON, 6, 0.5),
+        (ShapeType.STAR, 7, 0.42),
+    ],
+)
+def test_decorative_shape_preserves_round_pot_fit_and_wall(
+    shape_type,
+    sections,
+    star_inner_ratio,
+):
+    config = make_config(
+        shape_type=shape_type,
+        sections=sections,
+        star_inner_ratio=star_inner_ratio,
+        texture_type=TextureType.NONE,
+        z_rotation_deg=0.0,
+    )
+    inner_outline = _shape_ring_outline(config.base_thickness_mm, config, inner=True)
+    inner = Polygon(inner_outline)
+    outer_outline = _shape_ring_outline(config.base_thickness_mm, config, inner=False)
+    outer = Polygon(outer_outline)
+
+    assert _outline_minimum_radius(inner_outline) >= (config.inner_diameter_mm * 0.5) - 1e-6
+    assert outer.boundary.distance(inner) >= config.wall_thickness_mm - 0.05
+    assert max(sqrt((x * x) + (y * y)) for x, y in outer_outline) <= (
+        (config.inner_diameter_mm * 0.5)
+        + config.wall_thickness_mm
+        + config.shape_relief_mm
+        + 0.5
+    )
+
+
+@pytest.mark.parametrize(
+    "profile_type",
+    [ProfileType.WAIST, ProfileType.BELLY, ProfileType.FLARE, ProfileType.SHOULDER],
+)
+def test_sculpted_profiles_produce_watertight_single_body_mesh(profile_type):
+    mesh = build_planter_sleeve(
+        make_config(
+            shape_type=ShapeType.CIRCLE,
+            profile_type=profile_type,
+            profile_depth_mm=8.0,
+            profile_position=0.6,
+            rim_style=RimStyle.BAND,
+            rim_lip_mm=2.0,
+            foot_ring_mm=2.0,
+            foot_height_mm=7.0,
+            texture_type=TextureType.NONE,
+            z_rotation_deg=0.0,
+            height_steps=32,
+        )
+    )
+
+    assert mesh.is_watertight
+    assert mesh.body_count == 1
 
 
 def test_analyze_printability_flags_common_risks():
@@ -175,7 +252,7 @@ def test_drainage_pattern_rejects_overlapping_holes():
         ).validate()
 
 
-def test_drainage_pattern_rejects_holes_outside_star_floor():
+def test_drainage_pattern_rejects_holes_outside_round_floor():
     with pytest.raises(ValueError, match="drainage pattern does not fit inside the planter floor"):
         GeneratorConfig(
             inner_diameter_mm=60.0,
@@ -186,7 +263,7 @@ def test_drainage_pattern_rejects_holes_outside_star_floor():
             drain_hole_diameter_mm=4.0,
             drainage_pattern=DrainagePattern.RADIAL,
             drainage_hole_count=8,
-            drainage_spacing_mm=12.0,
+            drainage_spacing_mm=29.0,
         ).validate()
 
 
@@ -241,6 +318,30 @@ def test_boolean_text_modes_work_on_default_textured_squircle():
     assert engraved.is_watertight and engraved.body_count == 1
     assert embossed.volume > plain.volume
     assert engraved.volume < plain.volume
+
+
+def test_boolean_text_modes_work_on_sculpted_flower_relief():
+    common = {
+        "inner_diameter_mm": 60.0,
+        "height_mm": 70.0,
+        "shape_type": ShapeType.FLOWER,
+        "shape_wave_count": 7,
+        "shape_relief_mm": 5.0,
+        "profile_type": ProfileType.BELLY,
+        "profile_depth_mm": 3.0,
+        "texture_type": TextureType.NONE,
+        "height_steps": 24,
+        "text_content": "POT",
+        "text_height_mm": 6.0,
+        "text_depth_mm": 0.5,
+    }
+    plain = build_planter_sleeve(GeneratorConfig(**common, text_mode=TextMode.NONE))
+    embossed = build_planter_sleeve(GeneratorConfig(**common, text_mode=TextMode.EMBOSS))
+    engraved = build_planter_sleeve(GeneratorConfig(**common, text_mode=TextMode.ENGRAVE))
+
+    assert embossed.is_watertight and embossed.body_count == 1
+    assert engraved.is_watertight and engraved.body_count == 1
+    assert embossed.volume > plain.volume > engraved.volume
 
 
 def test_open_bottom_sleeve_is_watertight_and_supports_boolean_text():

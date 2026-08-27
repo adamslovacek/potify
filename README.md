@@ -11,13 +11,15 @@ Python CLI and browser app for generating customizable, 3D-printable planter sle
 ## Features
 
 - Parametric dimensions, fit clearance, taper, wall, base, and rim lip
+- Guaranteed round inner cavity for the entered pot diameter, independent of the outer shape
 - Center, radial, square-grid, or hexagonal drainage layouts
 - Polygon, star, ellipse, squircle, flower, gear, and other cross-section shapes
+- Straight, waist, belly, flare, and shoulder silhouettes with rim and foot profiles
 - Twist, procedural textures, and image-based displacement
 - Grayscale mapping controls for image displacement
 - Watertight boolean text embossing and engraving
 - Fine, standard, draft, and custom nozzle/layer profiles with one-click repairs
-- Named browser presets and versioned share links
+- Visual style gallery, named browser styles, and versioned share links
 - JSON/CSV batch generation from the browser or CLI
 - Live Three.js preview, printer-bed presets, and printability warnings
 - STL, 3MF, or combined export
@@ -54,10 +56,15 @@ Open `http://127.0.0.1:5001`, adjust the model, and choose an export button.
 
 The top toolbar also provides:
 
-- `Preset +` / `Preset -`: save and remove named presets in browser storage
+- `Styles`: choose one of eight geometry previews without changing measured pot dimensions
+- `More > Save style`: save the current visual settings in browser storage
 - `Share`: create a URL that restores the complete current configuration
 - `Batch`: upload a JSON or CSV list and download all outputs with a manifest in one ZIP
 - `Repair`: apply conservative fixes for the selected nozzle and layer profile
+
+Built-in and saved styles change only appearance: shape, silhouette, rim, foot, twist,
+texture, and preview material. Pot diameter, clearance, height, bottom, drainage, and
+print settings remain unchanged. Preview material colors are not stored in STL files.
 
 The server binds only to localhost by default. Use `planter-web --host 0.0.0.0` to expose it on the local network, or add `--debug` during development.
 
@@ -79,6 +86,12 @@ Apply draft-profile printability repairs before export:
 
 ```bash
 planter-gen --pot-diameter 140 --height 135 --print-profile draft --auto-repair
+```
+
+Generate a flower sleeve with a soft belly, bounded shape relief, top band, and foot:
+
+```bash
+planter-gen --pot-diameter 140 --height 135 --shape-type flower --shape-wave-count 7 --shape-relief 4 --profile-type belly --profile-depth 2.5 --rim-style band --rim-lip 1.5 --foot-ring 1 --foot-height 8
 ```
 
 ### Batch Export
@@ -113,7 +126,12 @@ Batch generation keeps successful rows when another row fails and records every 
 - `--drainage-spacing` (default `12`): radial offset or grid pitch in mm
 - `--taper` (default `1.9`): sidewall taper in degrees
 - `--rim-lip` (default `1.4`): extra top lip width in mm
+- `--rim-style`: `plain`, `flared`, or `band`
 - `--shape-type` (default `squircle`): cross-section shape
+- `--shape-relief` (default `4`): maximum decorative outer-shape relief in mm
+- `--profile-type`: `straight`, `waist`, `belly`, `flare`, or `shoulder`
+- `--profile-depth` / `--profile-position`: silhouette strength and vertical position
+- `--foot-ring` / `--foot-height`: optional widened base profile
 - `--texture-type` (default `braid`): procedural texture pattern
 - `--texture-strength` (default `0.9`): texture displacement depth in mm
 - `--texture-scale` (default `2.4`): legacy uniform UV scale

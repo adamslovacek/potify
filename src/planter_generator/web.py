@@ -30,7 +30,9 @@ def _load_model_symbols():
         DrainagePattern,
         ExportFormat,
         GeneratorConfig,
+        ProfileType,
         PrintProfile,
+        RimStyle,
         ShapeType,
         TextMode,
         TextureType,
@@ -44,7 +46,9 @@ def _load_model_symbols():
         "DrainagePattern": DrainagePattern,
         "ExportFormat": ExportFormat,
         "GeneratorConfig": GeneratorConfig,
+        "ProfileType": ProfileType,
         "PrintProfile": PrintProfile,
+        "RimStyle": RimStyle,
         "ShapeType": ShapeType,
         "TextMode": TextMode,
         "TextureType": TextureType,
@@ -148,6 +152,12 @@ def create_app() -> Flask:
         "include_bottom": "on",
         "taper": "1.9",
         "rim_lip": "1.4",
+        "rim_style": "flared",
+        "profile_type": "straight",
+        "profile_depth": "0.0",
+        "profile_position": "0.55",
+        "foot_ring": "0.0",
+        "foot_height": "8.0",
         "drain_hole_diameter": "0.0",
         "drainage_pattern": "center",
         "drainage_hole_count": "1",
@@ -174,6 +184,7 @@ def create_app() -> Flask:
         "shape_roundness": "0.35",
         "shape_wave_depth": "0.6",
         "shape_wave_count": "8",
+        "shape_relief": "4.0",
         "sections": "7",
         "print_profile": "standard",
         "nozzle_diameter": "0.4",
@@ -205,6 +216,10 @@ def create_app() -> Flask:
         "base": _to_float,
         "taper": _to_float,
         "rim_lip": _to_float,
+        "profile_depth": _to_float,
+        "profile_position": _to_float,
+        "foot_ring": _to_float,
+        "foot_height": _to_float,
         "drain_hole_diameter": _to_float,
         "drainage_hole_count": _to_int,
         "drainage_spacing": _to_float,
@@ -225,6 +240,7 @@ def create_app() -> Flask:
         "shape_roundness": _to_float,
         "shape_wave_depth": _to_float,
         "shape_wave_count": _to_int,
+        "shape_relief": _to_float,
         "sections": _to_int,
         "nozzle_diameter": _to_float,
         "layer_height": _to_float,
@@ -277,6 +293,8 @@ def create_app() -> Flask:
         payload["texture_displacement_mode"] = form.get("texture_displacement_mode", "symmetric")
         payload["texture_gray_invert"] = _to_bool(form.get("texture_gray_invert"))
         payload["shape_type"] = form.get("shape_type", "polygon")
+        payload["profile_type"] = form.get("profile_type", "straight")
+        payload["rim_style"] = form.get("rim_style", "flared")
         payload["drainage_pattern"] = form.get("drainage_pattern", "center")
         payload["print_profile"] = form.get("print_profile", "standard")
         payload["auto_repair"] = _to_bool(form.get("auto_repair"))
@@ -300,6 +318,8 @@ def create_app() -> Flask:
         DisplacementMode = symbols["DisplacementMode"]
         DrainagePattern = symbols["DrainagePattern"]
         ShapeType = symbols["ShapeType"]
+        ProfileType = symbols["ProfileType"]
+        RimStyle = symbols["RimStyle"]
         PrintProfile = symbols["PrintProfile"]
         TextMode = symbols["TextMode"]
         ExportFormat = symbols["ExportFormat"]
@@ -324,6 +344,12 @@ def create_app() -> Flask:
                 include_bottom=bool(form.get("include_bottom")),
                 taper_deg=_to_float(form.get("taper"), "taper"),
                 rim_lip_mm=_to_float(form.get("rim_lip"), "rim_lip"),
+                rim_style=RimStyle(form.get("rim_style", "flared")),
+                profile_type=ProfileType(form.get("profile_type", "straight")),
+                profile_depth_mm=_to_float(form.get("profile_depth"), "profile_depth"),
+                profile_position=_to_float(form.get("profile_position"), "profile_position"),
+                foot_ring_mm=_to_float(form.get("foot_ring"), "foot_ring"),
+                foot_height_mm=_to_float(form.get("foot_height"), "foot_height"),
                 drain_hole_diameter_mm=_to_float(form.get("drain_hole_diameter"), "drain_hole_diameter"),
                 drainage_pattern=DrainagePattern(form.get("drainage_pattern", "center")),
                 drainage_hole_count=_to_int(form.get("drainage_hole_count"), "drainage_hole_count"),
@@ -359,6 +385,7 @@ def create_app() -> Flask:
                 shape_roundness=_to_float(form.get("shape_roundness"), "shape_roundness"),
                 shape_wave_depth=_to_float(form.get("shape_wave_depth"), "shape_wave_depth"),
                 shape_wave_count=_to_int(form.get("shape_wave_count"), "shape_wave_count"),
+                shape_relief_mm=_to_float(form.get("shape_relief"), "shape_relief"),
                 sections=_to_int(form.get("sections"), "sections"),
                 print_profile=PrintProfile(form.get("print_profile", "standard")),
                 nozzle_diameter_mm=_to_float(form.get("nozzle_diameter"), "nozzle_diameter"),
@@ -427,6 +454,8 @@ def create_app() -> Flask:
         DisplacementMode = symbols["DisplacementMode"]
         DrainagePattern = symbols["DrainagePattern"]
         ShapeType = symbols["ShapeType"]
+        ProfileType = symbols["ProfileType"]
+        RimStyle = symbols["RimStyle"]
         PrintProfile = symbols["PrintProfile"]
         TextMode = symbols["TextMode"]
         ExportFormat = symbols["ExportFormat"]
@@ -446,6 +475,12 @@ def create_app() -> Flask:
                 include_bottom=payload["include_bottom"],
                 taper_deg=payload["taper"],
                 rim_lip_mm=payload["rim_lip"],
+                rim_style=RimStyle(payload["rim_style"]),
+                profile_type=ProfileType(payload["profile_type"]),
+                profile_depth_mm=payload["profile_depth"],
+                profile_position=payload["profile_position"],
+                foot_ring_mm=payload["foot_ring"],
+                foot_height_mm=payload["foot_height"],
                 drain_hole_diameter_mm=payload["drain_hole_diameter"],
                 drainage_pattern=DrainagePattern(payload["drainage_pattern"]),
                 drainage_hole_count=payload["drainage_hole_count"],
@@ -472,6 +507,7 @@ def create_app() -> Flask:
                 shape_roundness=payload["shape_roundness"],
                 shape_wave_depth=payload["shape_wave_depth"],
                 shape_wave_count=payload["shape_wave_count"],
+                shape_relief_mm=payload["shape_relief"],
                 sections=payload["sections"],
                 print_profile=PrintProfile(payload["print_profile"]),
                 nozzle_diameter_mm=payload["nozzle_diameter"],

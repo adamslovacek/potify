@@ -26,12 +26,13 @@
     body {
       margin: 0;
       min-height: 100vh;
+      overflow-x: hidden;
       font-family: "Inter", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
       color: var(--ink);
       background: radial-gradient(circle at top left, #f7f9fb 0%, #eceff4 45%, #eef2f7 100%);
     }
     .card {
-      width: 100vw;
+      width: 100%;
       height: 100vh;
       margin: 0;
       background: var(--bg);
@@ -173,6 +174,94 @@
       min-height: 36px;
       box-shadow: none;
     }
+    .style-gallery {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .style-card {
+      min-width: 0;
+      padding: 0;
+      overflow: hidden;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      background: #ffffff;
+      color: #1e293b;
+      box-shadow: none;
+      text-align: left;
+    }
+    .style-card:hover,
+    .style-card:focus-visible {
+      transform: none;
+      border-color: #5076a3;
+      box-shadow: 0 0 0 3px rgba(80, 118, 163, 0.14);
+    }
+    .style-card canvas {
+      display: block;
+      width: 100%;
+      aspect-ratio: 4 / 3;
+      background: #edf2f7;
+    }
+    .style-card-copy {
+      display: grid;
+      gap: 6px;
+      padding: 9px 10px 10px;
+    }
+    .style-card-name {
+      font-size: 0.82rem;
+      font-weight: 800;
+    }
+    .style-card-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+    }
+    .style-card-tag {
+      font-size: 0.64rem;
+      font-weight: 700;
+      color: #53647a;
+      background: #eef2f7;
+      border-radius: 4px;
+      padding: 3px 5px;
+    }
+    #style-dialog { width: min(960px, calc(100vw - 32px)); }
+    .saved-style-row {
+      display: grid;
+      grid-template-columns: minmax(180px, 1fr) auto auto;
+      gap: 8px;
+      align-items: end;
+      padding-top: 14px;
+      border-top: 1px solid #e2e8f0;
+    }
+    .utility-menu { position: relative; }
+    .utility-menu > summary {
+      list-style: none;
+      cursor: pointer;
+      min-height: 36px;
+      padding: 9px 12px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      background: #f8fafc;
+      color: #334155;
+      font-size: 0.78rem;
+      font-weight: 700;
+    }
+    .utility-menu > summary::-webkit-details-marker { display: none; }
+    .utility-menu-popover {
+      position: absolute;
+      z-index: 100;
+      top: calc(100% + 8px);
+      right: 0;
+      width: 190px;
+      display: grid;
+      gap: 6px;
+      padding: 8px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      background: #ffffff;
+      box-shadow: 0 16px 36px rgba(15, 23, 42, 0.18);
+    }
+    .utility-menu-popover button { width: 100%; box-shadow: none; }
     .language-control {
       position: relative;
       display: flex;
@@ -661,6 +750,22 @@
       line-height: 1.35;
       color: var(--muted);
     }
+    .surface-subheading {
+      margin-top: 6px;
+      padding-top: 14px;
+      border-top: 1px solid #e2e8f0;
+      color: #334155;
+      font-size: 0.76rem;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+    .printability-list {
+      margin: 0;
+      padding-left: 18px;
+      color: #526176;
+      font-size: 0.82rem;
+      line-height: 1.45;
+    }
     .utility-actions {
       display: inline-flex;
       gap: 6px;
@@ -693,6 +798,7 @@
       line-height: 1.4;
     }
     .operation-status:empty { display: none; }
+    .mobile-export-bar { display: none; }
     dialog {
       width: min(520px, calc(100vw - 32px));
       max-height: min(760px, calc(100vh - 32px));
@@ -735,14 +841,40 @@
       .preview-wrap { min-height: 42vh; border-radius: 0; }
     }
     @media (max-width: 780px) {
-      header { flex-direction: column; align-items: flex-start; gap: 10px; }
-      header h1 { font-size: 1.45rem; }
-      header p { font-size: 0.92rem; }
+      body { padding-bottom: 66px; }
+      header { flex-direction: column; align-items: flex-start; gap: 8px; padding: 10px 12px; }
+      header h1 { font-size: 1.05rem; }
+      header p { display: none; }
       .header-actions { width: 100%; justify-content: flex-start; }
       .preset-control { width: 100%; }
       .preset-control select { min-width: 0; flex: 1; }
       .utility-actions { width: 100%; flex-wrap: wrap; }
+      .style-gallery { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .saved-style-row { grid-template-columns: 1fr 1fr; }
+      .saved-style-row label { grid-column: 1 / -1; }
       .content { padding: 16px 18px 24px; }
+      .preview-toolbar { width: calc(100% - 20px); }
+      .preview-toolbar-group { max-width: 100%; flex-wrap: wrap; }
+      .preview-toolbar-group:first-child { width: 100%; }
+      .preview-bed-select { flex-basis: 100%; min-width: 0; max-width: 100%; }
+      .header-actions > .export-action { display: none; }
+      .mobile-export-bar {
+        position: fixed;
+        z-index: 120;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        padding: 9px max(12px, env(safe-area-inset-right)) calc(9px + env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+        border-top: 1px solid #cbd5e1;
+        background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px);
+        box-shadow: 0 -8px 24px rgba(15, 23, 42, 0.12);
+      }
+      .mobile-export-bar button { min-height: 42px; border-radius: 8px; }
+      .operation-status { bottom: 78px; }
     }
   </style>
 </head>
@@ -776,47 +908,7 @@
             <option value="en">English</option>
           </select>
         </div>
-        <div class="preset-control">
-          <select id="preset-select" aria-label="Preset models">
-            <option value="" data-i18n="presetPlaceholder">Preset models...</option>
-            <optgroup label="Minimal Forms">
-              <option value="mono_column">Mono Column</option>
-              <option value="calm_taper">Calm Taper</option>
-              <option value="open_air_tube">Open Air Tube</option>
-              <option value="gallery_edge">Gallery Edge</option>
-              <option value="quiet_stone">Quiet Stone</option>
-            </optgroup>
-            <optgroup label="Organic Flow">
-              <option value="sea_spiral">Sea Spiral</option>
-              <option value="leaf_braid">Leaf Braid</option>
-              <option value="soft_hex">Soft Hex</option>
-              <option value="flowing_rings">Flowing Rings</option>
-              <option value="petal_star">Petal Star</option>
-            </optgroup>
-            <optgroup label="Industrial Edge">
-              <option value="forge_stack">Forge Stack</option>
-              <option value="steel_torque">Steel Torque</option>
-              <option value="basalt_grid">Basalt Grid</option>
-              <option value="charcoal_frame">Charcoal Frame</option>
-              <option value="oxide_twist">Oxide Twist</option>
-            </optgroup>
-            <optgroup label="Statement Pieces">
-              <option value="crown_star">Crown Star</option>
-              <option value="raku_flame">Raku Flame</option>
-              <option value="terra_spire">Terra Spire</option>
-              <option value="pearl_wave">Pearl Wave</option>
-              <option value="monolith_x">Monolith X</option>
-            </optgroup>
-          </select>
-          <button type="button" id="apply-preset-btn" class="button-secondary" data-i18n="applyPreset">Apply preset</button>
-        </div>
-        <div class="utility-actions">
-          <button type="button" id="save-custom-preset-btn" class="button-secondary" title="Save named preset">Preset +</button>
-          <button type="button" id="delete-custom-preset-btn" class="button-secondary" title="Delete selected custom preset">Preset -</button>
-          <button type="button" id="share-config-btn" class="button-secondary" title="Create shareable configuration link">Share</button>
-          <button type="button" id="batch-export-btn" class="button-secondary" title="Batch export JSON or CSV">Batch</button>
-          <button type="button" id="repair-config-btn" class="button-secondary" title="Apply printability fixes">Repair</button>
-        </div>
+        <button type="button" id="open-style-gallery-btn" class="button-secondary">Styles</button>
         <div class="export-action">
           <button type="submit" id="export-stl-btn" form="generator-form" formaction="/generate" formmethod="post" name="format" value="stl" data-i18n="exportStl">Export STL</button>
           <span id="export-stl-status" class="export-status" data-state="ok" role="status" aria-live="polite" title="No obvious printability risks detected.">OK</span>
@@ -825,8 +917,17 @@
           <button type="submit" id="export-3mf-btn" form="generator-form" formaction="/generate" formmethod="post" name="format" value="3mf" data-i18n="export3mf">Export 3MF</button>
           <span id="export-3mf-status" class="export-status" data-state="ok" role="status" aria-live="polite" title="No obvious printability risks detected.">OK</span>
         </div>
-        <button type="button" id="load-config-btn" class="button-secondary" data-i18n="loadJson">Load</button>
-        <button type="submit" id="save-config-btn" form="generator-form" formaction="/save-config" formmethod="post" class="button-secondary" data-i18n="saveJson">Save</button>
+        <details class="utility-menu">
+          <summary>More</summary>
+          <div class="utility-menu-popover">
+            <button type="button" id="save-custom-preset-btn" class="button-secondary">Save style</button>
+            <button type="button" id="share-config-btn" class="button-secondary" title="Create shareable configuration link">Share</button>
+            <button type="button" id="batch-export-btn" class="button-secondary" title="Batch export JSON or CSV">Batch</button>
+            <button type="button" id="repair-config-btn" class="button-secondary" title="Apply printability fixes">Repair</button>
+            <button type="button" id="load-config-btn" class="button-secondary" data-i18n="loadJson">Load</button>
+            <button type="submit" id="save-config-btn" form="generator-form" formaction="/save-config" formmethod="post" class="button-secondary" data-i18n="saveJson">Save</button>
+          </div>
+        </details>
         <input id="load-config-input" type="file" accept="application/json,.json" style="display:none">
       </div>
     </header>
@@ -921,7 +1022,7 @@
         <form id="generator-form" method="post" action="/generate" class="panel menu-panel" enctype="multipart/form-data">
           <div class="grid">
             <details class="menu-group" open>
-              <summary data-i18n="menuDimensions">Dimensions & Bottom</summary>
+              <summary>Dimensions</summary>
               <div class="menu-group-body">
                 <label>
                   <span data-i18n="potDiameter">Pot diameter (mm)</span>
@@ -978,15 +1079,24 @@
                   <span data-i18n="rimLip">Rim lip (mm)</span>
                   <input name="rim_lip" type="number" step="0.1" min="0" value="{{ values.rim_lip }}" required>
                 </label>
+                <label>
+                  <span>Rim style</span>
+                  <select name="rim_style" required>
+                    <option value="plain" {% if values.rim_style == "plain" %}selected{% endif %}>Plain</option>
+                    <option value="flared" {% if values.rim_style == "flared" %}selected{% endif %}>Soft flare</option>
+                    <option value="band" {% if values.rim_style == "band" %}selected{% endif %}>Top band</option>
+                  </select>
+                </label>
               </div>
             </details>
 
             <details class="menu-group">
-              <summary data-i18n="menuShape">Shape & Twist</summary>
+              <summary>Shape</summary>
               <div class="menu-group-body">
                 <label>
                   <span data-i18n="shapeTypeLabel">Shape type</span>
                   <select name="shape_type" required>
+                    <option value="circle" {% if values.shape_type == "circle" %}selected{% endif %}>Circle</option>
                     <option value="polygon" data-i18n="polygonSided" {% if values.shape_type == "polygon" %}selected{% endif %}>Polygon (n-sided)</option>
                     <option value="star" data-i18n="starShape" {% if values.shape_type == "star" %}selected{% endif %}>Star</option>
                     <option value="ellipse" data-i18n="ellipseShape" {% if values.shape_type == "ellipse" %}selected{% endif %}>Ellipse</option>
@@ -1002,6 +1112,32 @@
                   </select>
                 </label>
                 <div class="field-hint" data-i18n="shapeHint">Additional shape-specific settings appear only for shapes that use them.</div>
+                <label>
+                  <span>Silhouette</span>
+                  <select name="profile_type" required>
+                    <option value="straight" {% if values.profile_type == "straight" %}selected{% endif %}>Straight</option>
+                    <option value="waist" {% if values.profile_type == "waist" %}selected{% endif %}>Sculpted waist</option>
+                    <option value="belly" {% if values.profile_type == "belly" %}selected{% endif %}>Soft belly</option>
+                    <option value="flare" {% if values.profile_type == "flare" %}selected{% endif %}>Top flare</option>
+                    <option value="shoulder" {% if values.profile_type == "shoulder" %}selected{% endif %}>Raised shoulder</option>
+                  </select>
+                </label>
+                <label>
+                  <span>Silhouette depth (mm)</span>
+                  <input name="profile_depth" type="number" step="0.5" min="0" max="30" value="{{ values.profile_depth | default('0.0') }}" required>
+                </label>
+                <label>
+                  <span>Silhouette position (0.1-0.9)</span>
+                  <input name="profile_position" type="number" step="0.05" min="0.1" max="0.9" value="{{ values.profile_position | default('0.55') }}" required>
+                </label>
+                <label>
+                  <span>Foot ring width (mm)</span>
+                  <input name="foot_ring" type="number" step="0.5" min="0" max="20" value="{{ values.foot_ring | default('0.0') }}" required>
+                </label>
+                <label>
+                  <span>Foot ring height (mm)</span>
+                  <input name="foot_height" type="number" step="0.5" min="0.5" value="{{ values.foot_height | default('8.0') }}" required>
+                </label>
                 <label class="shape-control" data-shapes="star gear flower">
                   <span data-i18n="starInnerRatio">Star inner ratio (0.1–0.9)</span>
                   <input name="star_inner_ratio" type="number" step="0.05" min="0.1" max="0.9" value="{{ values.star_inner_ratio }}" required>
@@ -1023,15 +1159,13 @@
                   <input name="shape_wave_count" type="number" step="1" min="2" max="24" value="{{ values.shape_wave_count or '6' }}" required>
                 </label>
                 <label>
-                  <span data-i18n="middleInboundLabel">Middle inbound (0-50, step 0.1)</span>
-                  <input name="middle_inbound_turns" type="number" step="0.1" min="0" max="50" value="{{ values.middle_inbound_turns or values.twist_turns or '0' }}" required>
+                  <span>Shape relief (mm)</span>
+                  <input name="shape_relief" type="number" step="0.5" min="0" max="30" value="{{ values.shape_relief | default('4.0') }}" required>
                 </label>
+                <input name="middle_inbound_turns" type="hidden" value="0">
+                <input name="middle_inbound_z" type="hidden" value="">
                 <label>
-                  <span data-i18n="middleInboundPositionLabel">Middle inbound position on Z (mm)</span>
-                  <input name="middle_inbound_z" type="number" step="0.1" min="0" placeholder="Auto-center" value="{{ values.middle_inbound_z }}">
-                </label>
-                <label>
-                  <span data-i18n="zTwistLabel">Z twist at top (deg)</span>
+                  <span data-i18n="zTwistLabel">Twist from bottom to top (deg)</span>
                   <input name="z_rotation" type="number" step="1" min="-3600" max="3600" value="{{ values.z_rotation or '0' }}" required>
                 </label>
                 <label class="shape-control" data-shapes="polygon star gear">
@@ -1041,8 +1175,8 @@
               </div>
             </details>
 
-            <details class="menu-group">
-              <summary data-i18n="menuTexture">Texture & Displacement</summary>
+            <details class="menu-group" id="surface-group">
+              <summary>Surface</summary>
               <div class="menu-group-body">
                 <label>
                   <span data-i18n="textureTypeLabel">Texture type</span>
@@ -1144,8 +1278,8 @@
               </div>
             </details>
 
-            <details class="menu-group">
-              <summary>Print Profile & Repair</summary>
+            <details class="menu-group" id="print-group">
+              <summary>Print</summary>
               <div class="menu-group-body">
                 <label>
                   <span>Print profile</span>
@@ -1169,10 +1303,11 @@
                   <span>Repair automatically before export</span>
                 </label>
                 <div class="field-hint">Repair adjusts fragile dimensions; it never edits the source preset.</div>
+                <ul id="printability-list" class="printability-list"></ul>
               </div>
             </details>
 
-            <details class="menu-group">
+            <details class="menu-group" id="text-group">
               <summary data-i18n="menuText">Text & Engraving</summary>
               <div class="menu-group-body">
                 <label>
@@ -1208,7 +1343,7 @@
               </div>
             </details>
 
-            <details class="menu-group">
+            <details class="menu-group" id="material-group">
               <summary data-i18n="menuMaterial">Material Preview Style</summary>
               <div class="menu-group-body">
                 <label>
@@ -1244,19 +1379,41 @@
                     </optgroup>
                   </select>
                 </label>
+                <div class="field-hint">Preview appearance only. STL stores geometry, not material color.</div>
                 <div id="material-thumbs" class="material-thumbs"></div>
               </div>
             </details>
         </div>
 
-          <div class="actions">
-            <span class="muted" data-i18n="footerHint">Use top-right buttons next to the title to export STL/3MF or save JSON.</span>
-          </div>
         </form>
       </div>
     </section>
   </main>
+  <div class="mobile-export-bar" aria-label="Export model">
+    <button type="submit" form="generator-form" formaction="/generate" formmethod="post" name="format" value="stl">Export STL</button>
+    <button type="submit" form="generator-form" formaction="/generate" formmethod="post" name="format" value="3mf">Export 3MF</button>
+  </div>
   <div id="operation-status" class="operation-status" role="status" aria-live="polite"></div>
+
+  <dialog id="style-dialog" aria-labelledby="style-dialog-title">
+    <form method="dialog" class="dialog-body">
+      <h2 id="style-dialog-title">Choose a Style</h2>
+      <div id="style-gallery" class="style-gallery"></div>
+      <div class="saved-style-row">
+        <label>
+          Saved styles
+          <select id="preset-select" aria-label="Saved styles">
+            <option value="">Select saved style...</option>
+          </select>
+        </label>
+        <button type="button" id="apply-preset-btn" class="button-secondary">Load</button>
+        <button type="button" id="delete-custom-preset-btn" class="button-secondary">Delete</button>
+      </div>
+      <div class="dialog-actions">
+        <button value="cancel" class="button-secondary">Close</button>
+      </div>
+    </form>
+  </dialog>
 
   <dialog id="preset-dialog" aria-labelledby="preset-dialog-title">
     <form method="dialog" class="dialog-body">
@@ -1317,6 +1474,9 @@
     const textureInvertInput = document.getElementById("texture-invert");
     const presetSelect = document.getElementById("preset-select");
     const applyPresetButton = document.getElementById("apply-preset-btn");
+    const openStyleGalleryButton = document.getElementById("open-style-gallery-btn");
+    const styleDialog = document.getElementById("style-dialog");
+    const styleGallery = document.getElementById("style-gallery");
     const saveCustomPresetButton = document.getElementById("save-custom-preset-btn");
     const deleteCustomPresetButton = document.getElementById("delete-custom-preset-btn");
     const shareConfigButton = document.getElementById("share-config-btn");
@@ -1351,6 +1511,23 @@
     const languageFlag = document.getElementById("language-flag");
     const shapeControls = Array.from(document.querySelectorAll(".shape-control[data-shapes]"));
     const meshStats = document.getElementById("mesh-stats");
+
+    function consolidateSurfaceControls() {
+      const surfaceBody = document.querySelector("#surface-group .menu-group-body");
+      if (!surfaceBody) return;
+      for (const [groupId, label] of [["text-group", "Text"], ["material-group", "Preview material"]]) {
+        const group = document.getElementById(groupId);
+        const body = group?.querySelector(".menu-group-body");
+        if (!group || !body) continue;
+        const heading = document.createElement("div");
+        heading.className = "surface-subheading";
+        heading.textContent = label;
+        surfaceBody.append(heading, ...body.children);
+        group.remove();
+      }
+    }
+
+    consolidateSurfaceControls();
 
     const imageDisplacementState = {
       data: null,
@@ -1492,6 +1669,12 @@
         shape_roundness: 0.5,
         shape_wave_depth: 0.35,
         shape_wave_count: 6,
+        profile_type: "straight",
+        profile_depth: 0,
+        profile_position: 0.55,
+        foot_ring: 0,
+        foot_height: 8,
+        rim_style: "flared",
         ...data,
       };
       if (!("texture_scale_u" in data) && ("texture_scale" in data)) {
@@ -1527,30 +1710,35 @@
       updatePreview();
     }
 
+    const STYLE_FIELDS = [
+      "shape_type", "star_inner_ratio", "shape_aspect_ratio", "shape_roundness", "shape_wave_depth",
+      "shape_wave_count", "shape_relief", "profile_type", "profile_depth", "profile_position", "foot_ring", "foot_height",
+      "rim_style", "rim_lip", "z_rotation", "sections", "texture_type", "texture_strength", "texture_scale",
+      "texture_scale_u", "texture_scale_v", "texture_offset_u", "texture_offset_v", "texture_rotation",
+      "texture_displacement_mode", "texture_gray_black", "texture_gray_white", "texture_gray_midpoint",
+      "texture_gray_invert", "material_type",
+    ];
+
+    const STYLE_BASE = {
+      shape_type: "circle", star_inner_ratio: 0.82, shape_aspect_ratio: 1, shape_roundness: 0.7,
+      shape_wave_depth: 0.25, shape_wave_count: 7, shape_relief: 4, profile_type: "straight", profile_depth: 0,
+      profile_position: 0.55, foot_ring: 0, foot_height: 8, rim_style: "flared", rim_lip: 1.2,
+      z_rotation: 0, sections: 8, texture_type: "none", texture_strength: 0, texture_scale: 2,
+      texture_scale_u: 2, texture_scale_v: 2, texture_offset_u: 0, texture_offset_v: 0,
+      texture_rotation: 0, texture_displacement_mode: "symmetric", texture_gray_black: 0,
+      texture_gray_white: 1, texture_gray_midpoint: 0.5, texture_gray_invert: false,
+      material_type: "concrete",
+    };
+
     const PRESETS = {
-      mono_column: { pot_diameter: 140, clearance: 1.2, height: 150, wall: 3.0, base: 4.0, include_bottom: true, taper: 0.8, rim_lip: 0.8, shape_type: "polygon", star_inner_ratio: 0.5, middle_inbound_turns: 0.0, middle_inbound_z: 75, z_rotation: 0, sections: 6, texture_type: "none", texture_strength: 0.6, texture_scale: 2.0, texture_rotation: 0, material_type: "micro-cement" },
-      calm_taper: { pot_diameter: 148, clearance: 1.4, height: 165, wall: 3.2, base: 4.2, include_bottom: true, taper: 2.4, rim_lip: 1.0, shape_type: "polygon", star_inner_ratio: 0.5, middle_inbound_turns: 0.0, middle_inbound_z: 82.5, z_rotation: 25, sections: 7, texture_type: "rings", texture_strength: 0.5, texture_scale: 1.6, texture_rotation: 30, material_type: "smooth-sand" },
-      open_air_tube: { pot_diameter: 132, clearance: 1.0, height: 135, wall: 2.8, base: 3.5, include_bottom: false, taper: 1.0, rim_lip: 0.6, shape_type: "polygon", star_inner_ratio: 0.5, middle_inbound_turns: 0.2, middle_inbound_z: 67.5, z_rotation: 10, sections: 8, texture_type: "none", texture_strength: 0.4, texture_scale: 2.0, texture_rotation: 0, material_type: "concrete" },
-      gallery_edge: { pot_diameter: 155, clearance: 1.8, height: 175, wall: 3.4, base: 4.5, include_bottom: true, taper: 1.6, rim_lip: 2.0, shape_type: "polygon", star_inner_ratio: 0.5, middle_inbound_turns: 0.6, middle_inbound_z: 90, z_rotation: 45, sections: 10, texture_type: "micro_rings", texture_strength: 0.6, texture_scale: 2.3, texture_rotation: 18, material_type: "slate" },
-      quiet_stone: { pot_diameter: 145, clearance: 1.3, height: 160, wall: 3.1, base: 4.0, include_bottom: true, taper: 1.2, rim_lip: 1.1, shape_type: "polygon", star_inner_ratio: 0.5, middle_inbound_turns: 0.4, middle_inbound_z: 78, z_rotation: 20, sections: 9, texture_type: "hammered", texture_strength: 0.7, texture_scale: 1.8, texture_rotation: 35, material_type: "dark-stone" },
-
-      sea_spiral: { pot_diameter: 138, clearance: 1.2, height: 152, wall: 3.0, base: 4.0, include_bottom: true, taper: 1.3, rim_lip: 1.0, shape_type: "polygon", star_inner_ratio: 0.5, middle_inbound_turns: 2.8, middle_inbound_z: 68, z_rotation: 220, sections: 8, texture_type: "spiral", texture_strength: 0.8, texture_scale: 2.6, texture_rotation: 25, material_type: "travertine" },
-      leaf_braid: { pot_diameter: 150, clearance: 1.5, height: 170, wall: 3.2, base: 4.1, include_bottom: true, taper: 1.9, rim_lip: 1.3, shape_type: "polygon", star_inner_ratio: 0.5, middle_inbound_turns: 2.2, middle_inbound_z: 74, z_rotation: 180, sections: 9, texture_type: "braid", texture_strength: 0.9, texture_scale: 2.1, texture_rotation: 40, material_type: "weathered-concrete" },
-      soft_hex: { pot_diameter: 142, clearance: 1.2, height: 158, wall: 3.0, base: 4.0, include_bottom: true, taper: 1.5, rim_lip: 1.0, shape_type: "polygon", star_inner_ratio: 0.5, middle_inbound_turns: 1.7, middle_inbound_z: 79, z_rotation: 120, sections: 6, texture_type: "hex", texture_strength: 0.7, texture_scale: 1.7, texture_rotation: 15, material_type: "sandstone" },
-      flowing_rings: { pot_diameter: 136, clearance: 1.1, height: 148, wall: 2.9, base: 3.8, include_bottom: true, taper: 1.1, rim_lip: 0.9, shape_type: "polygon", star_inner_ratio: 0.5, middle_inbound_turns: 1.9, middle_inbound_z: 73, z_rotation: 90, sections: 7, texture_type: "rings", texture_strength: 0.8, texture_scale: 2.9, texture_rotation: 60, material_type: "concrete" },
-      petal_star: { pot_diameter: 146, clearance: 1.4, height: 168, wall: 3.2, base: 4.2, include_bottom: true, taper: 1.8, rim_lip: 1.5, shape_type: "star", star_inner_ratio: 0.62, middle_inbound_turns: 2.4, middle_inbound_z: 84, z_rotation: 260, sections: 6, texture_type: "micro_rings", texture_strength: 0.7, texture_scale: 2.2, texture_rotation: 20, material_type: "terracotta" },
-
-      forge_stack: { pot_diameter: 152, clearance: 1.6, height: 176, wall: 3.5, base: 4.6, include_bottom: true, taper: 0.9, rim_lip: 1.2, shape_type: "polygon", star_inner_ratio: 0.5, middle_inbound_turns: 0.9, middle_inbound_z: 80, z_rotation: 75, sections: 8, texture_type: "grid", texture_strength: 0.9, texture_scale: 2.2, texture_rotation: 45, material_type: "worn-steel" },
-      steel_torque: { pot_diameter: 144, clearance: 1.3, height: 164, wall: 3.3, base: 4.1, include_bottom: true, taper: 1.0, rim_lip: 1.0, shape_type: "polygon", star_inner_ratio: 0.5, middle_inbound_turns: 3.0, middle_inbound_z: 82, z_rotation: 420, sections: 10, texture_type: "spiral", texture_strength: 0.8, texture_scale: 2.4, texture_rotation: 25, material_type: "brushed-metal" },
-      basalt_grid: { pot_diameter: 150, clearance: 1.5, height: 172, wall: 3.4, base: 4.4, include_bottom: true, taper: 1.4, rim_lip: 1.1, shape_type: "polygon", star_inner_ratio: 0.5, middle_inbound_turns: 1.3, middle_inbound_z: 86, z_rotation: 160, sections: 6, texture_type: "grid", texture_strength: 1.0, texture_scale: 1.6, texture_rotation: 0, material_type: "basalt" },
-      charcoal_frame: { pot_diameter: 140, clearance: 1.2, height: 155, wall: 3.2, base: 4.0, include_bottom: true, taper: 0.7, rim_lip: 0.9, shape_type: "polygon", star_inner_ratio: 0.5, middle_inbound_turns: 0.8, middle_inbound_z: 77, z_rotation: 70, sections: 4, texture_type: "hammered", texture_strength: 0.9, texture_scale: 2.7, texture_rotation: 50, material_type: "charcoal" },
-      oxide_twist: { pot_diameter: 148, clearance: 1.4, height: 166, wall: 3.3, base: 4.2, include_bottom: true, taper: 1.5, rim_lip: 1.2, shape_type: "polygon", star_inner_ratio: 0.5, middle_inbound_turns: 2.6, middle_inbound_z: 70, z_rotation: 300, sections: 9, texture_type: "braid", texture_strength: 0.7, texture_scale: 2.0, texture_rotation: 35, material_type: "oxidized-copper" },
-
-      crown_star: { pot_diameter: 154, clearance: 1.8, height: 182, wall: 3.4, base: 4.8, include_bottom: true, taper: 2.2, rim_lip: 2.1, shape_type: "star", star_inner_ratio: 0.42, middle_inbound_turns: 3.8, middle_inbound_z: 90, z_rotation: 460, sections: 7, texture_type: "hex", texture_strength: 0.95, texture_scale: 1.7, texture_rotation: 10, material_type: "raku" },
-      raku_flame: { pot_diameter: 143, clearance: 1.3, height: 170, wall: 3.2, base: 4.2, include_bottom: true, taper: 1.7, rim_lip: 1.6, shape_type: "star", star_inner_ratio: 0.55, middle_inbound_turns: 3.3, middle_inbound_z: 82, z_rotation: 380, sections: 6, texture_type: "spiral", texture_strength: 1.0, texture_scale: 2.8, texture_rotation: 75, material_type: "raku" },
-      terra_spire: { pot_diameter: 151, clearance: 1.7, height: 188, wall: 3.5, base: 4.9, include_bottom: true, taper: 2.6, rim_lip: 1.9, shape_type: "polygon", star_inner_ratio: 0.5, middle_inbound_turns: 4.2, middle_inbound_z: 94, z_rotation: 520, sections: 11, texture_type: "micro_rings", texture_strength: 0.85, texture_scale: 2.5, texture_rotation: 40, material_type: "terracotta" },
-      pearl_wave: { pot_diameter: 147, clearance: 1.4, height: 174, wall: 3.1, base: 4.0, include_bottom: true, taper: 1.4, rim_lip: 1.8, shape_type: "polygon", star_inner_ratio: 0.5, middle_inbound_turns: 2.9, middle_inbound_z: 87, z_rotation: 340, sections: 10, texture_type: "rings", texture_strength: 0.7, texture_scale: 3.0, texture_rotation: 15, material_type: "pearl-glaze" },
-      monolith_x: { pot_diameter: 160, clearance: 2.0, height: 200, wall: 3.8, base: 5.0, include_bottom: true, taper: 0.5, rim_lip: 1.4, shape_type: "polygon", star_inner_ratio: 0.5, middle_inbound_turns: 1.1, middle_inbound_z: 100, z_rotation: 120, sections: 4, texture_type: "hammered", texture_strength: 1.1, texture_scale: 1.9, texture_rotation: 20, material_type: "matte-black" },
+      plain_round: { ...STYLE_BASE, label: "Plain Round", tags: ["fast", "clean"], rim_style: "plain", rim_lip: 0, sections: 12, material_type: "micro-cement" },
+      soft_square: { ...STYLE_BASE, label: "Soft Square", tags: ["soft", "minimal"], shape_type: "rounded_square", shape_roundness: 0.82, shape_relief: 3, profile_type: "belly", profile_depth: 1.5, foot_ring: 1, material_type: "porcelain-speckle" },
+      ribbed_column: { ...STYLE_BASE, label: "Ribbed Column", tags: ["ribbed", "fast"], rim_style: "band", rim_lip: 1.6, foot_ring: 2, texture_type: "rings", texture_strength: 0.65, texture_scale_u: 1, texture_scale_v: 6.5, material_type: "travertine" },
+      hex_helix: { ...STYLE_BASE, label: "Hex Helix", tags: ["twist", "faceted"], shape_type: "polygon", sections: 6, profile_type: "flare", profile_depth: 2, profile_position: 0.62, z_rotation: 75, rim_style: "plain", rim_lip: 0, material_type: "slate" },
+      seven_petals: { ...STYLE_BASE, label: "Seven Petals", tags: ["organic", "bold"], shape_type: "flower", star_inner_ratio: 0.82, shape_wave_depth: 0.3, shape_wave_count: 7, profile_type: "belly", profile_depth: 2.5, z_rotation: 12, material_type: "terracotta" },
+      pebble: { ...STYLE_BASE, label: "Pebble", tags: ["calm", "organic"], shape_type: "ellipse", shape_aspect_ratio: 1.25, profile_type: "belly", profile_depth: 3, profile_position: 0.48, texture_type: "hammered", texture_strength: 0.45, texture_scale_u: 3.2, texture_scale_v: 2.6, material_type: "dark-stone" },
+      fine_gear: { ...STYLE_BASE, label: "Fine Gear", tags: ["precise", "industrial"], shape_type: "gear", sections: 16, star_inner_ratio: 0.84, shape_roundness: 0.65, shape_relief: 3, profile_type: "shoulder", profile_depth: 2, profile_position: 0.62, texture_type: "micro_rings", texture_strength: 0.35, texture_scale_v: 5, material_type: "brushed-metal" },
+      sculpted_waist: { ...STYLE_BASE, label: "Sculpted Waist", tags: ["sculpted", "signature"], shape_type: "squircle", shape_roundness: 0.72, profile_type: "waist", profile_depth: 4, profile_position: 0.52, foot_ring: 1.5, foot_height: 9, rim_style: "band", rim_lip: 2, z_rotation: 32, texture_type: "braid", texture_strength: 0.45, texture_scale_u: 2, texture_scale_v: 3, material_type: "smooth-sand" },
     };
 
     const CUSTOM_PRESETS_KEY = "potify_custom_presets_v1";
@@ -1611,7 +1799,7 @@
       const presets = readCustomPresets();
       const existing = presets.find((preset) => preset.name.toLowerCase() === name.toLowerCase());
       const id = existing?.id || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
-      const entry = { id, name, config: collectFormSnapshot(), updatedAt: new Date().toISOString() };
+      const entry = { id, name, config: normalizePresetForFdm(collectFormSnapshot()), updatedAt: new Date().toISOString() };
       const next = existing
         ? presets.map((preset) => preset.id === existing.id ? entry : preset)
         : [...presets, entry];
@@ -6061,38 +6249,154 @@
     }
 
     function normalizePresetForFdm(preset) {
-      const normalized = { ...preset };
-      const height = clamp(Number(normalized.height) || 150, 90, 210);
-      normalized.height = snap(height, 0.1);
-      normalized.pot_diameter = snap(clamp(Number(normalized.pot_diameter) || 140, 90, 240), 0.1);
-      normalized.clearance = snap(clamp(Number(normalized.clearance) || 1.2, 0.6, 2.4), 0.1);
-      normalized.wall = snap(clamp(Number(normalized.wall) || 3.0, 2.4, 4.0), 0.4);
-      normalized.base = snap(clamp(Number(normalized.base) || 4.0, 3.0, 6.0), 0.2);
-      normalized.taper = snap(clamp(Number(normalized.taper) || 1.2, 0.0, 2.2), 0.1);
-      normalized.rim_lip = snap(clamp(Number(normalized.rim_lip) || 1.0, 0.6, 1.8), 0.1);
-      normalized.middle_inbound_turns = snap(clamp(Number(normalized.middle_inbound_turns) || 0, 0, 2.6), 0.1);
-      normalized.middle_inbound_z = snap(clamp(Number(normalized.middle_inbound_z) || (normalized.height * 0.5), 0, normalized.height), 0.1);
-      normalized.z_rotation = snap(clamp(Number(normalized.z_rotation) || 0, -240, 240), 1);
-      normalized.sections = snap(clamp(Number(normalized.sections) || 6, 4, 10), 1);
-      normalized.texture_strength = snap(clamp(Number(normalized.texture_strength) || 0.5, 0, 0.7), 0.1);
-      normalized.texture_scale = snap(clamp(Number(normalized.texture_scale) || 2.0, 1.0, 2.6), 0.1);
-      normalized.texture_scale_u = snap(
-        clamp(Number(normalized.texture_scale_u) || Number(normalized.texture_scale) || 2.0, 0.8, 4.0),
-        0.1,
+      return Object.fromEntries(
+        STYLE_FIELDS
+          .filter((field) => Object.prototype.hasOwnProperty.call(preset, field))
+          .map((field) => [field, preset[field]]),
       );
-      normalized.texture_scale_v = snap(
-        clamp(Number(normalized.texture_scale_v) || Number(normalized.texture_scale) || 2.0, 0.8, 4.0),
-        0.1,
-      );
-      normalized.texture_offset_u = snap(clamp(Number(normalized.texture_offset_u) || 0, -2.0, 2.0), 0.05);
-      normalized.texture_offset_v = snap(clamp(Number(normalized.texture_offset_v) || 0, -2.0, 2.0), 0.05);
-      normalized.texture_rotation = snap(clamp(Number(normalized.texture_rotation) || 0, 0, 180), 1);
-      normalized.star_inner_ratio = snap(clamp(Number(normalized.star_inner_ratio) || 0.5, 0.45, 0.8), 0.05);
-      normalized.shape_aspect_ratio = snap(clamp(Number(normalized.shape_aspect_ratio) || 1.0, 0.6, 1.8), 0.05);
-      normalized.shape_roundness = snap(clamp(Number(normalized.shape_roundness) || 0.5, 0.15, 0.85), 0.05);
-      normalized.shape_wave_depth = snap(clamp(Number(normalized.shape_wave_depth) || 0.35, 0.1, 0.75), 0.05);
-      normalized.shape_wave_count = snap(clamp(Number(normalized.shape_wave_count) || 6, 3, 12), 1);
-      return normalized;
+    }
+
+    function thumbnailProfileOffset(ratio, preset) {
+      const position = clamp(Number(preset.profile_position) || 0.55, 0.1, 0.9);
+      const bell = ratio <= position
+        ? smoothstep(ratio / position)
+        : smoothstep((1 - ratio) / (1 - position));
+      const depth = Number(preset.profile_depth) || 0;
+      if (preset.profile_type === "waist") return depth * (1 - bell);
+      if (preset.profile_type === "belly") return depth * bell;
+      if (preset.profile_type === "flare") return depth * smoothstep(ratio);
+      if (preset.profile_type === "shoulder") {
+        return depth * smoothstep(ratio / position) * (1 - (0.35 * smoothstep((ratio - position) / (1 - position))));
+      }
+      return 0;
+    }
+
+    function drawStyleThumbnail(canvas, preset) {
+      const context = canvas.getContext("2d");
+      if (!context) return;
+      const width = canvas.width;
+      const height = canvas.height;
+      const palette = MATERIAL_SWATCHES[preset.material_type] || MATERIAL_SWATCHES.concrete;
+      const background = context.createLinearGradient(0, 0, 0, height);
+      background.addColorStop(0, "#f8fafc");
+      background.addColorStop(1, "#e8eef5");
+      context.fillStyle = background;
+      context.fillRect(0, 0, width, height);
+
+      const centerX = 78;
+      const topY = 22;
+      const bottomY = 132;
+      const sidePoints = [];
+      for (let index = 0; index <= 32; index += 1) {
+        const ratio = index / 32;
+        const zRatio = 1 - ratio;
+        const foot = zRatio < 0.08 ? (Number(preset.foot_ring) || 0) * (1 - smoothstep(zRatio / 0.08)) : 0;
+        const halfWidth = 34 + (thumbnailProfileOffset(zRatio, preset) * 1.3) + (foot * 1.3);
+        sidePoints.push([centerX - halfWidth, topY + (ratio * (bottomY - topY))]);
+      }
+      for (let index = 32; index >= 0; index -= 1) {
+        const ratio = index / 32;
+        const zRatio = 1 - ratio;
+        const foot = zRatio < 0.08 ? (Number(preset.foot_ring) || 0) * (1 - smoothstep(zRatio / 0.08)) : 0;
+        const halfWidth = 34 + (thumbnailProfileOffset(zRatio, preset) * 1.3) + (foot * 1.3);
+        sidePoints.push([centerX + halfWidth, topY + (ratio * (bottomY - topY))]);
+      }
+      context.beginPath();
+      sidePoints.forEach(([x, y], index) => index ? context.lineTo(x, y) : context.moveTo(x, y));
+      context.closePath();
+      const bodyGradient = context.createLinearGradient(centerX - 48, 0, centerX + 48, 0);
+      bodyGradient.addColorStop(0, palette[1]);
+      bodyGradient.addColorStop(0.48, palette[0]);
+      bodyGradient.addColorStop(1, palette[1]);
+      context.fillStyle = bodyGradient;
+      context.fill();
+      context.save();
+      context.clip();
+      context.strokeStyle = "rgba(30, 41, 59, 0.2)";
+      context.lineWidth = 1;
+      if (["rings", "micro_rings"].includes(preset.texture_type)) {
+        const gap = preset.texture_type === "micro_rings" ? 5 : 10;
+        for (let y = topY + 4; y < bottomY; y += gap) {
+          context.beginPath(); context.moveTo(28, y); context.lineTo(128, y); context.stroke();
+        }
+      } else if (["spiral", "braid", "grid"].includes(preset.texture_type)) {
+        for (let x = -80; x < 180; x += 13) {
+          context.beginPath(); context.moveTo(x, bottomY); context.lineTo(x + 95, topY); context.stroke();
+        }
+      } else if (preset.texture_type === "hammered") {
+        context.fillStyle = "rgba(30, 41, 59, 0.18)";
+        for (let index = 0; index < 70; index += 1) {
+          const x = 25 + ((Math.sin(index * 91.7) + 1) * 52);
+          const y = topY + ((Math.sin(index * 37.1) + 1) * 0.5 * (bottomY - topY));
+          context.beginPath(); context.arc(x, y, 1.2, 0, Math.PI * 2); context.fill();
+        }
+      }
+      context.restore();
+      context.strokeStyle = "rgba(15, 23, 42, 0.28)";
+      context.stroke();
+      context.fillStyle = "rgba(15, 23, 42, 0.38)";
+      context.beginPath();
+      context.ellipse(centerX, topY, 34, 9, 0, 0, Math.PI * 2);
+      context.fill();
+      context.strokeStyle = "rgba(255, 255, 255, 0.7)";
+      context.beginPath();
+      context.ellipse(centerX, topY + 1, 28, 6, 0, 0, Math.PI * 2);
+      context.stroke();
+
+      const shape = {
+        type: preset.shape_type,
+        sections: Number(preset.sections) || 8,
+        starInnerRatio: Number(preset.star_inner_ratio) || 0.82,
+        aspectRatio: Number(preset.shape_aspect_ratio) || 1,
+        roundness: Number(preset.shape_roundness) || 0.7,
+        waveDepth: Number(preset.shape_wave_depth) || 0.25,
+        waveCount: Number(preset.shape_wave_count) || 7,
+      };
+      const pointCount = Math.min(160, shapePointCount(shape));
+      const factors = Array.from({ length: pointCount }, (_, index) => pointAngleAndRadiusFactor(index, pointCount, shape));
+      const maxFactor = Math.max(...factors.map(({ radiusFactor }) => radiusFactor));
+      context.beginPath();
+      factors.forEach(({ theta, radiusFactor }, index) => {
+        const radius = (24 * radiusFactor) / maxFactor;
+        const x = 176 + (radius * Math.cos(theta));
+        const y = 50 + (radius * Math.sin(theta));
+        index ? context.lineTo(x, y) : context.moveTo(x, y);
+      });
+      context.closePath();
+      context.fillStyle = palette[0];
+      context.strokeStyle = palette[1];
+      context.lineWidth = 2;
+      context.fill();
+      context.stroke();
+      context.beginPath();
+      context.arc(176, 50, 12, 0, Math.PI * 2);
+      context.strokeStyle = "rgba(255,255,255,0.82)";
+      context.stroke();
+    }
+
+    function applyBuiltInStyle(key) {
+      const preset = PRESETS[key];
+      if (!preset) return;
+      applyLoadedConfig(normalizePresetForFdm(preset));
+      pushHistorySnapshot();
+      styleDialog?.close();
+      setOperationStatus(`Style “${preset.label}” applied. Fit dimensions were preserved.`);
+    }
+
+    function renderStyleGallery() {
+      if (!styleGallery) return;
+      styleGallery.innerHTML = Object.entries(PRESETS).map(([key, preset]) => (
+        `<button type="button" class="style-card" data-style-key="${key}">`
+        + `<canvas width="220" height="150" aria-hidden="true"></canvas>`
+        + `<span class="style-card-copy"><span class="style-card-name">${preset.label}</span>`
+        + `<span class="style-card-tags">${preset.tags.map((tag) => `<span class="style-card-tag">${tag}</span>`).join("")}</span></span>`
+        + `</button>`
+      )).join("");
+      for (const card of styleGallery.querySelectorAll("[data-style-key]")) {
+        const key = card.dataset.styleKey;
+        drawStyleThumbnail(card.querySelector("canvas"), PRESETS[key]);
+        card.addEventListener("click", () => applyBuiltInStyle(key));
+      }
     }
 
     function applySelectedPreset() {
@@ -6102,9 +6406,10 @@
         const id = key.slice("custom:".length);
         const custom = readCustomPresets().find((preset) => preset.id === id);
         if (!custom) return;
-        applyLoadedConfig(custom.config);
+        applyLoadedConfig(normalizePresetForFdm(custom.config));
         pushHistorySnapshot();
-        setOperationStatus(`Preset “${custom.name}” loaded.`);
+        styleDialog?.close();
+        setOperationStatus(`Style “${custom.name}” loaded. Fit dimensions were preserved.`);
         return;
       }
       const preset = PRESETS[key];
@@ -6112,6 +6417,7 @@
       const fdmPreset = normalizePresetForFdm(preset);
       applyLoadedConfig(fdmPreset);
       pushHistorySnapshot();
+      styleDialog?.close();
       if (previewError) previewError.textContent = "";
     }
 
@@ -6136,9 +6442,10 @@
     }
     
     const inputNames = [
-      "pot_diameter", "clearance", "height", "wall", "base", "taper", "rim_lip", "drain_hole_diameter",
+      "pot_diameter", "clearance", "height", "wall", "base", "taper", "rim_lip", "rim_style",
+      "profile_type", "profile_depth", "profile_position", "foot_ring", "foot_height", "drain_hole_diameter",
       "drainage_pattern", "drainage_hole_count", "drainage_spacing", "include_bottom", "shape_type", "star_inner_ratio",
-      "shape_aspect_ratio", "shape_roundness", "shape_wave_depth", "shape_wave_count", "texture_type", "texture_strength",
+      "shape_aspect_ratio", "shape_roundness", "shape_wave_depth", "shape_wave_count", "shape_relief", "texture_type", "texture_strength",
       "texture_scale", "texture_scale_u", "texture_scale_v", "texture_offset_u", "texture_offset_v", "texture_rotation",
       "texture_displacement_mode", "texture_gray_black", "texture_gray_white", "texture_gray_midpoint", "texture_gray_invert",
       "middle_inbound_turns", "middle_inbound_z", "z_rotation", "material_type", "sections", "print_profile",
@@ -6441,6 +6748,7 @@
         roundness: clamp(numberValue("shape_roundness"), 0.0, 1.0),
         waveDepth: clamp(numberValue("shape_wave_depth"), 0.0, 0.95),
         waveCount: Math.max(2, Math.min(24, Math.floor(numberValue("shape_wave_count")))),
+        relief: clamp(numberValue("shape_relief"), 0, 30),
       };
     }
 
@@ -6525,8 +6833,13 @@
     }
 
     function shapePointCount(shape) {
-      if (shape.type === "polygon") return shape.sections;
-      if (shape.type === "star") return shape.sections * 2;
+      if (shape.type === "polygon") {
+        return shape.sections * Math.max(1, Math.ceil(48 / shape.sections));
+      }
+      if (shape.type === "star") {
+        const anchors = shape.sections * 2;
+        return anchors * Math.max(1, Math.ceil(48 / anchors));
+      }
       const baseCount = Math.max(48, shape.sections * 8, shape.waveCount * 10);
       if (["gear", "clover", "scallop", "flower"].includes(shape.type)) {
         return Math.max(60, baseCount);
@@ -6534,15 +6847,54 @@
       return baseCount;
     }
 
+    function polygonRadiusFactor(theta, vertexCount, innerRatio = null) {
+      const sector = (Math.PI * 2.0) / vertexCount;
+      const normalized = ((theta % (Math.PI * 2.0)) + (Math.PI * 2.0)) % (Math.PI * 2.0);
+      const edgeIndex = Math.min(vertexCount - 1, Math.floor(normalized / sector));
+      const nextIndex = (edgeIndex + 1) % vertexCount;
+      const angle0 = edgeIndex * sector;
+      const angle1 = (edgeIndex + 1) * sector;
+      const radius0 = innerRatio === null || edgeIndex % 2 === 0 ? 1.0 : innerRatio;
+      const radius1 = innerRatio === null || nextIndex % 2 === 0 ? 1.0 : innerRatio;
+      const point0 = [radius0 * Math.cos(angle0), radius0 * Math.sin(angle0)];
+      const point1 = [radius1 * Math.cos(angle1), radius1 * Math.sin(angle1)];
+      const edge = [point1[0] - point0[0], point1[1] - point0[1]];
+      const direction = [Math.cos(theta), Math.sin(theta)];
+      const denominator = (direction[0] * edge[1]) - (direction[1] * edge[0]);
+      const numerator = (point0[0] * edge[1]) - (point0[1] * edge[0]);
+      return Math.abs(denominator) < 1e-9 ? radius0 : Math.max(0.05, numerator / denominator);
+    }
+
     function pointAngleAndRadiusFactor(index, pointCount, shape) {
       const theta = (index / pointCount) * Math.PI * 2.0;
       if (shape.type === "polygon") {
-        return { theta, radiusFactor: 1.0 };
+        return { theta, radiusFactor: polygonRadiusFactor(theta, shape.sections) };
       }
       if (shape.type === "star") {
-        return { theta, radiusFactor: (index % 2) === 1 ? shape.starInnerRatio : 1.0 };
+        return {
+          theta,
+          radiusFactor: polygonRadiusFactor(theta, shape.sections * 2, shape.starInnerRatio),
+        };
       }
       return { theta, radiusFactor: shapeRadiusFactor(theta, shape) };
+    }
+
+    function outlineMinimumRadius(points) {
+      let minimum = Infinity;
+      for (let index = 0; index < points.length; index += 1) {
+        const [x0, y0] = points[index];
+        const [x1, y1] = points[(index + 1) % points.length];
+        const dx = x1 - x0;
+        const dy = y1 - y0;
+        const lengthSquared = (dx * dx) + (dy * dy);
+        const t = lengthSquared <= 1e-12
+          ? 0
+          : clamp(-((x0 * dx) + (y0 * dy)) / lengthSquared, 0, 1);
+        const nearestX = x0 + (t * dx);
+        const nearestY = y0 + (t * dy);
+        minimum = Math.min(minimum, Math.hypot(nearestX, nearestY));
+      }
+      return minimum;
     }
 
     function textureOffset(z, theta) {
@@ -7168,6 +7520,35 @@
       }
     }
 
+    function smoothstep(value) {
+      const normalized = clamp(value, 0, 1);
+      return normalized * normalized * (3 - (2 * normalized));
+    }
+
+    function profileRadiusOffset(z, height) {
+      const ratio = clamp(z / Math.max(1e-6, height), 0, 1);
+      const position = clamp(numberValue("profile_position"), 0.1, 0.9);
+      const bell = ratio <= position
+        ? smoothstep(ratio / position)
+        : smoothstep((1 - ratio) / (1 - position));
+      const depth = numberValue("profile_depth");
+      const profileType = inputs.profile_type?.value || "straight";
+      let offset = 0;
+      if (profileType === "waist") offset = depth * (1 - bell);
+      if (profileType === "belly") offset = depth * bell;
+      if (profileType === "flare") offset = depth * smoothstep(ratio);
+      if (profileType === "shoulder") {
+        const rise = smoothstep(ratio / position);
+        const settle = 1 - (0.35 * smoothstep((ratio - position) / (1 - position)));
+        offset = depth * rise * settle;
+      }
+      const footHeight = Math.max(0.5, numberValue("foot_height"));
+      if (z < footHeight) {
+        offset += numberValue("foot_ring") * (1 - smoothstep(z / footHeight));
+      }
+      return offset;
+    }
+
     function buildProfile() {
       const includeBottom = !!inputs.include_bottom?.checked;
       const pot = numberValue("pot_diameter");
@@ -7177,6 +7558,7 @@
       const base = numberValue("base");
       const taperDeg = numberValue("taper");
       const rimLip = numberValue("rim_lip");
+      const rimStyle = inputs.rim_style?.value || "flared";
       const drainHoleDiameter = numberValue("drain_hole_diameter") || 0;
 
       const innerDiameter = pot + (2.0 * clearance);
@@ -7189,18 +7571,26 @@
       const centerDrainage = (inputs.drainage_pattern?.value || "center") === "center";
       const hasDrainHole = includeBottom && centerDrainage && rHole > 0 && rHole < rInnerAtBase;
 
-      const rInner = (z) => rInnerAtBase + (taper * (z - zBase));
-      const rOuter = (z) => rInner(z) + wall;
+      const rInner = (z) => z < zBase
+        ? rInnerAtBase
+        : rInnerAtBase + (taper * (z - zBase));
+      const rOuterBody = (z) => rInnerAtBase + (taper * (z - zBase)) + wall;
+      const rOuter = (z) => {
+        let rimOffset = 0;
+        if (rimStyle !== "plain" && z > zLip) {
+          let progress = (z - zLip) / Math.max(1e-6, zTop - zLip);
+          if (rimStyle === "band") progress = Math.min(1, progress * 4);
+          rimOffset = rimLip * smoothstep(progress);
+        }
+        return rOuterBody(z) + rimOffset + profileRadiusOffset(z, height);
+      };
 
-      const rO0 = rOuter(0.0);
-      const rOb = rOuter(zBase);
-      const rOl = rOuter(zLip);
-      const rOt = rOuter(zTop);
-      const rIt = rInner(zTop);
-      const rLt = rOt + rimLip;
-      const rLl = rOl + rimLip;
-
-      const radii = [rO0, rOb, rOl, rOt, rIt, rLt, rLl, rInnerAtBase];
+      const outerLevels = [0, zBase, zLip, zTop];
+      for (let index = 0; index <= 32; index += 1) {
+        outerLevels.push((index / 32) * zTop);
+      }
+      const sortedOuterLevels = [...new Set(outerLevels)].sort((a, b) => a - b);
+      const radii = sortedOuterLevels.map(rOuter).concat([rInnerAtBase, rInner(zTop)]);
       if (radii.some((r) => r <= 0) || wall <= 0 || height <= zBase) {
         throw new Error("Invalid dimensions for preview.");
       }
@@ -7211,37 +7601,26 @@
 
       if (!includeBottom) {
         return [
-          [rOb, zBase],
-          [rOl, zLip],
-          [rLl, zLip],
-          [rLt, zTop],
-          [rIt, zTop],
-          [rInnerAtBase, zBase],
+          ...sortedOuterLevels.map((z) => ({ radius: rOuter(z), z, kind: "outer" })),
+          { radius: rInner(zTop), z: zTop, kind: "inner" },
+          { radius: rInnerAtBase, z: zBase, kind: "inner" },
         ];
       }
 
       if (hasDrainHole) {
         return [
-          [rHole, 0.0],
-          [rO0, 0.0],
-          [rOb, zBase],
-          [rOl, zLip],
-          [rLl, zLip],
-          [rLt, zTop],
-          [rIt, zTop],
-          [rInnerAtBase, zBase],
-          [rHole, zBase],
+          { radius: rHole, z: 0, kind: "hole" },
+          ...sortedOuterLevels.map((z) => ({ radius: rOuter(z), z, kind: "outer" })),
+          { radius: rInner(zTop), z: zTop, kind: "inner" },
+          { radius: rInnerAtBase, z: zBase, kind: "inner" },
+          { radius: rHole, z: zBase, kind: "hole" },
         ];
       }
 
       return [
-        [rO0, 0.0],
-        [rOb, zBase],
-        [rOl, zLip],
-        [rLl, zLip],
-        [rLt, zTop],
-        [rIt, zTop],
-        [rInnerAtBase, zBase],
+        ...sortedOuterLevels.map((z) => ({ radius: rOuter(z), z, kind: "outer" })),
+        { radius: rInner(zTop), z: zTop, kind: "inner" },
+        { radius: rInnerAtBase, z: zBase, kind: "inner" },
       ];
     }
 
@@ -7251,12 +7630,7 @@
       const profile = buildProfile();
       const includeBottom = !!inputs.include_bottom?.checked;
       const base = numberValue("base");
-      const middleInboundTurns = Math.max(0, Math.min(50, numberValue("middle_inbound_turns")));
       const height = Math.max(1e-6, numberValue("height"));
-      const middleInboundValue = inputs.middle_inbound_z?.value.trim() || "";
-      const middleInboundZ = middleInboundValue
-        ? Math.max(0, Math.min(height, Number(middleInboundValue)))
-        : height * 0.5;
       const zRotationDeg = numberValue("z_rotation");
       const drainHoleDiameter = numberValue("drain_hole_diameter") || 0;
       const centerDrainage = (inputs.drainage_pattern?.value || "center") === "center";
@@ -7264,23 +7638,57 @@
       const vertices = [];
       const uvs = [];
       const indices = [];
+      const shapeSamples = Array.from(
+        { length: pointCount },
+        (_, index) => pointAngleAndRadiusFactor(index, pointCount, shape),
+      );
+      const shapeFactors = shapeSamples.map(({ radiusFactor }) => radiusFactor);
+      const factorMin = Math.min(...shapeFactors);
+      const factorRange = Math.max(...shapeFactors) - factorMin;
 
       console.log(`[buildGeometry] shape=${shape.type}, sections=${shape.sections}, pointCount=${pointCount}, profile.length=${profile.length}`);
 
       for (let i = 0; i < profile.length; i++) {
-        const [radius, z] = profile[i];
-        const inboundRatio = (z - middleInboundZ) / height;
+        const { radius, z, kind } = profile[i];
         const zRatio = z / height;
-        const rotationAtZ = (Math.PI * 2.0) * middleInboundTurns * inboundRatio;
-        const zTwistAtZ = ((zRotationDeg * Math.PI) / 180.0) * zRatio;
+        const rotationAtZ = ((zRotationDeg * Math.PI) / 180.0) * zRatio;
+        const ring = [];
         for (let j = 0; j < pointCount; j++) {
-          const { theta, radiusFactor } = pointAngleAndRadiusFactor(j, pointCount, shape);
-          const offset = textureOffset(z, theta);
-          const useCircularHole = hasDrainHole && (i === 0 || i === (profile.length - 1));
-          const factor = useCircularHole ? 1.0 : radiusFactor;
-          const r = Math.max(0.025, (radius + offset) * factor);
-          const thetaRotated = theta + rotationAtZ + zTwistAtZ;
-          vertices.push(r * Math.cos(thetaRotated), r * Math.sin(thetaRotated), z);
+          const { theta, radiusFactor } = shapeSamples[j];
+          let ringRadius = radius;
+          if (kind === "outer") {
+            const relief = factorRange > 1e-9 ? (radiusFactor - factorMin) / factorRange : 0;
+            ringRadius = Math.max(0.025, radius + (shape.relief * relief) + textureOffset(z, theta));
+          } else if (kind === "inner") {
+            ringRadius = radius / Math.max(1e-6, Math.cos(Math.PI / pointCount));
+          }
+          ring.push([ringRadius * Math.cos(theta), ringRadius * Math.sin(theta)]);
+        }
+
+        if (kind === "outer") {
+          const potRadius = (numberValue("pot_diameter") + (2 * numberValue("clearance"))) * 0.5;
+          const base = inputs.include_bottom?.checked ? numberValue("base") : 0;
+          const taper = Math.tan((numberValue("taper") * Math.PI) / 180.0);
+          const innerRadius = z < base ? potRadius : potRadius + (taper * (z - base));
+          const innerMeshRadius = innerRadius / Math.max(1e-6, Math.cos(Math.PI / pointCount));
+          const minimumRadius = innerMeshRadius + (radius - innerRadius);
+          const actualMinimum = outlineMinimumRadius(ring);
+          if (actualMinimum < minimumRadius) {
+            const radialOffset = minimumRadius - actualMinimum;
+            for (const point of ring) {
+              const pointRadius = Math.max(0.025, Math.hypot(point[0], point[1]));
+              const scale = (pointRadius + radialOffset) / pointRadius;
+              point[0] *= scale;
+              point[1] *= scale;
+            }
+          }
+        }
+
+        for (let j = 0; j < pointCount; j++) {
+          const [x, y] = ring[j];
+          const rotatedX = (x * Math.cos(rotationAtZ)) - (y * Math.sin(rotationAtZ));
+          const rotatedY = (x * Math.sin(rotationAtZ)) + (y * Math.cos(rotationAtZ));
+          vertices.push(rotatedX, rotatedY, z);
           uvs.push(j / pointCount, z / height);
         }
       }
@@ -7322,7 +7730,7 @@
             indices.push(centerIndex, b, a);
           }
 
-          const outerBaseRing = 1;
+          const outerBaseRing = profile.findIndex((entry) => entry.kind === "outer" && Math.abs(entry.z - base) < 1e-6);
           const innerBaseRing = profile.length - 1;
           const outerStart = outerBaseRing * pointCount;
           const innerStart = innerBaseRing * pointCount;
@@ -8114,49 +8522,58 @@
         updateAxisLabelsForBox(box);
         frameCameraToModel(box);
         renderScene();
+        updateMeshStats();
       } catch (error) {
         console.error("setModel error:", error);
         previewError.textContent = `Render error: ${error.message}`;
       }
     }
 
+    function geometryVolumeMm3(geometry) {
+      const positions = geometry?.attributes?.position;
+      if (!positions) return 0;
+      const indices = geometry.index;
+      const triangleCount = indices ? indices.count / 3 : positions.count / 3;
+      let signedVolume = 0;
+      for (let triangle = 0; triangle < triangleCount; triangle += 1) {
+        const a = indices ? indices.getX((triangle * 3) + 0) : (triangle * 3) + 0;
+        const b = indices ? indices.getX((triangle * 3) + 1) : (triangle * 3) + 1;
+        const c = indices ? indices.getX((triangle * 3) + 2) : (triangle * 3) + 2;
+        const ax = positions.getX(a); const ay = positions.getY(a); const az = positions.getZ(a);
+        const bx = positions.getX(b); const by = positions.getY(b); const bz = positions.getZ(b);
+        const cx = positions.getX(c); const cy = positions.getY(c); const cz = positions.getZ(c);
+        signedVolume += (
+          (ax * ((by * cz) - (bz * cy)))
+          - (ay * ((bx * cz) - (bz * cx)))
+          + (az * ((bx * cy) - (by * cx)))
+        ) / 6;
+      }
+      return Math.abs(signedVolume);
+    }
+
     function updateMeshStats() {
-      if (!meshStats || !scene) return;
+      if (!meshStats || !modelMesh?.geometry) return;
       try {
-        let polyCount = 0;
-        let vertexCount = 0;
-        scene.traverse((obj) => {
-          if (obj.userData?.excludeFromStats || obj.parent?.userData?.excludeFromStats) return;
-          if (obj instanceof THREE.Mesh && obj.geometry) {
-            if (obj.geometry.index) {
-              polyCount += obj.geometry.index.count / 3;
-            } else if (obj.geometry.attributes.position) {
-              vertexCount = obj.geometry.attributes.position.count;
-              polyCount += vertexCount / 3;
-            }
-          }
-        });
-
+        const geometry = modelMesh.geometry;
+        const polyCount = geometry.index
+          ? geometry.index.count / 3
+          : geometry.attributes.position.count / 3;
         const innerDia = numberValue("pot_diameter") + (2.0 * numberValue("clearance"));
-        const height = numberValue("height");
-        const wall = numberValue("wall");
-        const base = numberValue("base");
-        const includeBottom = inputs.include_bottom?.checked ? 1 : 0;
-
-        const radiusInner = innerDia / 2;
-        const radiusOuter = radiusInner + wall;
-        const bodyVolume = Math.PI * (radiusOuter * radiusOuter - radiusInner * radiusInner) * height;
-        const baseVolume = Math.PI * radiusOuter * radiusOuter * base * includeBottom;
-        const totalVolume = (bodyVolume + baseVolume) / 1000; // mm³ to cm³
-        const filamentDensity = 1.24; // PLA density
-        const filamentDia = 1.75;
-        const filamentArea = Math.PI * (filamentDia / 2) ** 2;
-        const filamentWeight = (totalVolume * filamentDensity); // grams, rough
+        const totalVolume = geometryVolumeMm3(geometry) / 1000;
+        const filamentWeight = totalVolume * 1.24;
+        geometry.computeBoundingBox();
+        const size = geometry.boundingBox.getSize(new THREE.Vector3());
+        const bed = selectedPrinterBedPreset();
+        const bedFits = !bed || (
+          size.x <= (bed.printableWidth || bed.width)
+          && size.y <= (bed.printableDepth || bed.depth)
+        );
+        const bedStatus = bed ? (bedFits ? "Fits bed" : "Too large") : "No bed selected";
 
         const stlEstimate = polyCount * 50; // bytes, rough
         const imfEstimate = polyCount * 20; // compressed
 
-        const extrustionRateGramsPerHour = 60;
+        const extrustionRateGramsPerHour = 22;
         const printHoursFull = filamentWeight / extrustionRateGramsPerHour;
         const printHours = Math.floor(printHoursFull);
         const printMins = Math.floor((printHoursFull - printHours) * 60);
@@ -8176,16 +8593,24 @@
             <div class="mesh-stat-value">${(imfEstimate / 1024 / 1024).toFixed(1)} MB</div>
           </div>
           <div class="mesh-stat-item">
+            <div class="mesh-stat-label">Model Size</div>
+            <div class="mesh-stat-value">${size.x.toFixed(0)} x ${size.y.toFixed(0)} x ${size.z.toFixed(0)} mm</div>
+          </div>
+          <div class="mesh-stat-item">
+            <div class="mesh-stat-label">Pot Fit</div>
+            <div class="mesh-stat-value">Round ${innerDia.toFixed(1)} mm</div>
+          </div>
+          <div class="mesh-stat-item">
+            <div class="mesh-stat-label">Print Bed</div>
+            <div class="mesh-stat-value">${bedStatus}</div>
+          </div>
+          <div class="mesh-stat-item">
+            <div class="mesh-stat-label">Material</div>
+            <div class="mesh-stat-value">~${filamentWeight.toFixed(0)} g PLA</div>
+          </div>
+          <div class="mesh-stat-item">
             <div class="mesh-stat-label">Print Time</div>
-            <div class="mesh-stat-value">${printHours}h ${printMins}m</div>
-          </div>
-          <div class="mesh-stat-item">
-            <div class="mesh-stat-label">Est. Weight</div>
-            <div class="mesh-stat-value">${filamentWeight.toFixed(0)} g</div>
-          </div>
-          <div class="mesh-stat-item">
-            <div class="mesh-stat-label">Volume</div>
-            <div class="mesh-stat-value">${totalVolume.toFixed(1)} cm³</div>
+            <div class="mesh-stat-value">~${printHours}h ${printMins}m</div>
           </div>
         `;
       } catch (error) {
@@ -8335,9 +8760,15 @@
       });
     }
 
+    if (openStyleGalleryButton && styleDialog) {
+      openStyleGalleryButton.addEventListener("click", () => {
+        refreshCustomPresetOptions();
+        renderStyleGallery();
+        styleDialog.showModal();
+      });
+    }
     if (applyPresetButton && presetSelect) {
       applyPresetButton.addEventListener("click", applySelectedPreset);
-      presetSelect.addEventListener("change", applySelectedPreset);
     }
 
     if (saveCustomPresetButton && presetDialog) {
@@ -8371,6 +8802,7 @@
     populateMaterialStyleOptions();
     populateLanguageOptions();
     refreshCustomPresetOptions();
+    renderStyleGallery();
     updatePrintabilityDiagnostics();
     applySharedConfigFromUrl();
     historyState.stack = [];
@@ -8432,6 +8864,7 @@
       printerBedSelect.addEventListener("change", () => {
         previewState.printerBed = printerBedSelect.value || "none";
         updatePrinterBedVisual(activeModelBox());
+        updateMeshStats();
         renderScene();
       });
     }

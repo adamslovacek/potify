@@ -90,6 +90,42 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Extra outer lip around top rim in mm (default: 1.4).",
     )
     parser.add_argument(
+        "--rim-style",
+        choices=["plain", "flared", "band"],
+        default="flared",
+        help="Top rim profile (default: flared).",
+    )
+    parser.add_argument(
+        "--profile-type",
+        choices=["straight", "waist", "belly", "flare", "shoulder"],
+        default="straight",
+        help="Outer silhouette profile (default: straight).",
+    )
+    parser.add_argument(
+        "--profile-depth",
+        type=float,
+        default=0.0,
+        help="Silhouette profile depth in mm (default: 0).",
+    )
+    parser.add_argument(
+        "--profile-position",
+        type=float,
+        default=0.55,
+        help="Relative profile peak position in range 0.1..0.9 (default: 0.55).",
+    )
+    parser.add_argument(
+        "--foot-ring",
+        type=float,
+        default=0.0,
+        help="Extra width of the bottom foot ring in mm (default: 0).",
+    )
+    parser.add_argument(
+        "--foot-height",
+        type=float,
+        default=8.0,
+        help="Height of the bottom foot ring in mm (default: 8).",
+    )
+    parser.add_argument(
         "--texture-type",
         choices=["none", "rings", "micro_rings", "spiral", "braid", "grid", "hex", "hammered"],
         default="braid",
@@ -156,6 +192,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--shape-type",
         choices=[
+            "circle",
             "polygon",
             "star",
             "ellipse",
@@ -201,6 +238,12 @@ def _build_parser() -> argparse.ArgumentParser:
         type=int,
         default=8,
         help="Wave or petal count for supported shapes in range 2..24 (default: 8).",
+    )
+    parser.add_argument(
+        "--shape-relief",
+        type=float,
+        default=4.0,
+        help="Maximum decorative cross-section relief in mm (default: 4).",
     )
     parser.add_argument(
         "--sections",
@@ -307,7 +350,9 @@ def main(argv: list[str] | None = None) -> int:
         DrainagePattern,
         ExportFormat,
         GeneratorConfig,
+        ProfileType,
         PrintProfile,
+        RimStyle,
         ShapeType,
         TextMode,
         TextureType,
@@ -335,6 +380,12 @@ def main(argv: list[str] | None = None) -> int:
         include_bottom=not args.no_bottom,
         taper_deg=args.taper,
         rim_lip_mm=args.rim_lip,
+        rim_style=RimStyle(args.rim_style),
+        profile_type=ProfileType(args.profile_type),
+        profile_depth_mm=args.profile_depth,
+        profile_position=args.profile_position,
+        foot_ring_mm=args.foot_ring,
+        foot_height_mm=args.foot_height,
         drain_hole_diameter_mm=args.drain_hole_diameter,
         drainage_pattern=DrainagePattern(args.drainage_pattern),
         drainage_hole_count=args.drainage_hole_count,
@@ -355,6 +406,7 @@ def main(argv: list[str] | None = None) -> int:
         shape_roundness=args.shape_roundness,
         shape_wave_depth=args.shape_wave_depth,
         shape_wave_count=args.shape_wave_count,
+        shape_relief_mm=args.shape_relief,
         sections=args.sections,
         print_profile=profile,
         nozzle_diameter_mm=nozzle_diameter,
