@@ -27,6 +27,50 @@ def test_index_renders():
     assert b"Planter Sleeve Generator" in response.data
 
 
+def test_index_exposes_24_curated_style_presets():
+    app = create_app()
+    client = app.test_client()
+
+    source = client.get("/").get_data(as_text=True)
+    preset_source = source.split("const PRESETS = {", 1)[1].split(
+        "const CUSTOM_PRESETS_KEY",
+        1,
+    )[0]
+    style_names = (
+        "Plain Round",
+        "Soft Square",
+        "Ribbed Column",
+        "Hex Helix",
+        "Seven Petals",
+        "Pebble",
+        "Fine Gear",
+        "Sculpted Waist",
+        "Lotus Twist",
+        "Clover Bell",
+        "Coral Spiral",
+        "Teardrop Flow",
+        "Lens Ripple",
+        "Star Lantern",
+        "Origami Fold",
+        "Basalt Fortress",
+        "Honeycomb Tower",
+        "Raku Flame",
+        "Nordic Vase",
+        "Mechanical Bloom",
+        "Zen Dune",
+        "Prism Torque",
+        "Moon Crater",
+        "Copper Cascade",
+    )
+
+    assert preset_source.count('family: "') == 24
+    assert preset_source.count('family: "calm"') == 5
+    assert preset_source.count('family: "organic"') == 7
+    assert preset_source.count('family: "geometric"') == 6
+    assert preset_source.count('family: "dramatic"') == 6
+    assert all(f'label: "{name}"' in preset_source for name in style_names)
+
+
 def test_server_parser_defaults_to_local_non_debug_mode():
     parser = web._build_server_parser()
 
@@ -302,6 +346,8 @@ def test_index_exposes_validation_constraints_and_live_statuses():
         "open-style-gallery-btn",
         "style-dialog",
         "style-gallery",
+        "style-filter",
+        "style-count",
     ):
         assert document.get_element_by_id(element_id) is not None
 

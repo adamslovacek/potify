@@ -179,6 +179,52 @@
       grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 12px;
     }
+    .style-gallery-toolbar {
+      position: sticky;
+      top: 0;
+      z-index: 3;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 4px 0 10px;
+      background: #ffffff;
+    }
+    .style-filter {
+      display: inline-flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      padding: 4px;
+      border: 1px solid #d5dde8;
+      border-radius: 8px;
+      background: #eef2f7;
+    }
+    .style-filter button {
+      min-height: 30px;
+      padding: 6px 9px;
+      border: 0;
+      border-radius: 5px;
+      background: transparent;
+      color: #526176;
+      box-shadow: none;
+      font-size: 0.72rem;
+    }
+    .style-filter button:hover {
+      transform: none;
+      background: rgba(255, 255, 255, 0.72);
+      box-shadow: none;
+    }
+    .style-filter button[aria-pressed="true"] {
+      background: #ffffff;
+      color: #1e293b;
+      box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12);
+    }
+    .style-count {
+      flex: 0 0 auto;
+      color: #64748b;
+      font-size: 0.76rem;
+      font-weight: 700;
+    }
     .style-card {
       min-width: 0;
       padding: 0;
@@ -850,6 +896,9 @@
       .preset-control select { min-width: 0; flex: 1; }
       .utility-actions { width: 100%; flex-wrap: wrap; }
       .style-gallery { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .style-gallery-toolbar { align-items: flex-start; flex-direction: column; }
+      .style-filter { width: 100%; }
+      .style-filter button { flex: 1 1 auto; }
       .saved-style-row { grid-template-columns: 1fr 1fr; }
       .saved-style-row label { grid-column: 1 / -1; }
       .content { padding: 16px 18px 24px; }
@@ -1398,6 +1447,10 @@
   <dialog id="style-dialog" aria-labelledby="style-dialog-title">
     <form method="dialog" class="dialog-body">
       <h2 id="style-dialog-title">Choose a Style</h2>
+      <div class="style-gallery-toolbar">
+        <div id="style-filter" class="style-filter" aria-label="Filter styles"></div>
+        <span id="style-count" class="style-count"></span>
+      </div>
       <div id="style-gallery" class="style-gallery"></div>
       <div class="saved-style-row">
         <label>
@@ -1477,6 +1530,8 @@
     const openStyleGalleryButton = document.getElementById("open-style-gallery-btn");
     const styleDialog = document.getElementById("style-dialog");
     const styleGallery = document.getElementById("style-gallery");
+    const styleFilter = document.getElementById("style-filter");
+    const styleCount = document.getElementById("style-count");
     const saveCustomPresetButton = document.getElementById("save-custom-preset-btn");
     const deleteCustomPresetButton = document.getElementById("delete-custom-preset-btn");
     const shareConfigButton = document.getElementById("share-config-btn");
@@ -1731,14 +1786,31 @@
     };
 
     const PRESETS = {
-      plain_round: { ...STYLE_BASE, label: "Plain Round", tags: ["fast", "clean"], rim_style: "plain", rim_lip: 0, sections: 12, material_type: "micro-cement" },
-      soft_square: { ...STYLE_BASE, label: "Soft Square", tags: ["soft", "minimal"], shape_type: "rounded_square", shape_roundness: 0.82, shape_relief: 3, profile_type: "belly", profile_depth: 1.5, foot_ring: 1, material_type: "porcelain-speckle" },
-      ribbed_column: { ...STYLE_BASE, label: "Ribbed Column", tags: ["ribbed", "fast"], rim_style: "band", rim_lip: 1.6, foot_ring: 2, texture_type: "rings", texture_strength: 0.65, texture_scale_u: 1, texture_scale_v: 6.5, material_type: "travertine" },
-      hex_helix: { ...STYLE_BASE, label: "Hex Helix", tags: ["twist", "faceted"], shape_type: "polygon", sections: 6, profile_type: "flare", profile_depth: 2, profile_position: 0.62, z_rotation: 75, rim_style: "plain", rim_lip: 0, material_type: "slate" },
-      seven_petals: { ...STYLE_BASE, label: "Seven Petals", tags: ["organic", "bold"], shape_type: "flower", star_inner_ratio: 0.82, shape_wave_depth: 0.3, shape_wave_count: 7, profile_type: "belly", profile_depth: 2.5, z_rotation: 12, material_type: "terracotta" },
-      pebble: { ...STYLE_BASE, label: "Pebble", tags: ["calm", "organic"], shape_type: "ellipse", shape_aspect_ratio: 1.25, profile_type: "belly", profile_depth: 3, profile_position: 0.48, texture_type: "hammered", texture_strength: 0.45, texture_scale_u: 3.2, texture_scale_v: 2.6, material_type: "dark-stone" },
-      fine_gear: { ...STYLE_BASE, label: "Fine Gear", tags: ["precise", "industrial"], shape_type: "gear", sections: 16, star_inner_ratio: 0.84, shape_roundness: 0.65, shape_relief: 3, profile_type: "shoulder", profile_depth: 2, profile_position: 0.62, texture_type: "micro_rings", texture_strength: 0.35, texture_scale_v: 5, material_type: "brushed-metal" },
-      sculpted_waist: { ...STYLE_BASE, label: "Sculpted Waist", tags: ["sculpted", "signature"], shape_type: "squircle", shape_roundness: 0.72, profile_type: "waist", profile_depth: 4, profile_position: 0.52, foot_ring: 1.5, foot_height: 9, rim_style: "band", rim_lip: 2, z_rotation: 32, texture_type: "braid", texture_strength: 0.45, texture_scale_u: 2, texture_scale_v: 3, material_type: "smooth-sand" },
+      plain_round: { ...STYLE_BASE, family: "calm", label: "Plain Round", tags: ["fast", "clean"], rim_style: "plain", rim_lip: 0, sections: 12, material_type: "micro-cement" },
+      soft_square: { ...STYLE_BASE, family: "calm", label: "Soft Square", tags: ["soft", "minimal"], shape_type: "rounded_square", shape_roundness: 0.82, shape_relief: 3, profile_type: "belly", profile_depth: 1.5, foot_ring: 1, material_type: "porcelain-speckle" },
+      ribbed_column: { ...STYLE_BASE, family: "geometric", label: "Ribbed Column", tags: ["ribbed", "fast"], rim_style: "band", rim_lip: 1.6, foot_ring: 2, texture_type: "rings", texture_strength: 0.65, texture_scale_u: 1, texture_scale_v: 6.5, material_type: "travertine" },
+      hex_helix: { ...STYLE_BASE, family: "geometric", label: "Hex Helix", tags: ["twist", "faceted"], shape_type: "polygon", sections: 6, profile_type: "flare", profile_depth: 2, profile_position: 0.62, z_rotation: 75, rim_style: "plain", rim_lip: 0, material_type: "slate" },
+      seven_petals: { ...STYLE_BASE, family: "organic", label: "Seven Petals", tags: ["organic", "bold"], shape_type: "flower", star_inner_ratio: 0.82, shape_wave_depth: 0.3, shape_wave_count: 7, profile_type: "belly", profile_depth: 2.5, z_rotation: 12, material_type: "terracotta" },
+      pebble: { ...STYLE_BASE, family: "organic", label: "Pebble", tags: ["calm", "organic"], shape_type: "ellipse", shape_aspect_ratio: 1.25, profile_type: "belly", profile_depth: 3, profile_position: 0.48, texture_type: "hammered", texture_strength: 0.45, texture_scale_u: 3.2, texture_scale_v: 2.6, material_type: "dark-stone" },
+      fine_gear: { ...STYLE_BASE, family: "geometric", label: "Fine Gear", tags: ["precise", "industrial"], shape_type: "gear", sections: 16, star_inner_ratio: 0.84, shape_roundness: 0.65, shape_relief: 3, profile_type: "shoulder", profile_depth: 2, profile_position: 0.62, texture_type: "micro_rings", texture_strength: 0.35, texture_scale_v: 5, material_type: "brushed-metal" },
+      sculpted_waist: { ...STYLE_BASE, family: "dramatic", label: "Sculpted Waist", tags: ["sculpted", "signature"], shape_type: "squircle", shape_roundness: 0.72, profile_type: "waist", profile_depth: 4, profile_position: 0.52, foot_ring: 1.5, foot_height: 9, rim_style: "band", rim_lip: 2, z_rotation: 32, texture_type: "braid", texture_strength: 0.45, texture_scale_u: 2, texture_scale_v: 3, material_type: "smooth-sand" },
+
+      lotus_twist: { ...STYLE_BASE, family: "organic", label: "Lotus Twist", tags: ["lotus", "flowing"], shape_type: "flower", star_inner_ratio: 0.8, shape_roundness: 0.82, shape_wave_depth: 0.26, shape_wave_count: 9, shape_relief: 4.5, profile_type: "waist", profile_depth: 2.5, profile_position: 0.56, foot_ring: 1, rim_style: "flared", rim_lip: 1.8, z_rotation: 48, texture_type: "spiral", texture_strength: 0.3, texture_scale_u: 2.4, texture_scale_v: 3.8, material_type: "pearl-glaze" },
+      clover_bell: { ...STYLE_BASE, family: "organic", label: "Clover Bell", tags: ["four-lobe", "bell"], shape_type: "clover", shape_wave_depth: 0.2, shape_wave_count: 4, shape_relief: 4, profile_type: "flare", profile_depth: 3, profile_position: 0.58, foot_ring: 1.2, foot_height: 7, rim_style: "flared", rim_lip: 1.8, z_rotation: -10, texture_type: "rings", texture_strength: 0.3, texture_scale_u: 1, texture_scale_v: 5.5, material_type: "smooth-sand" },
+      coral_spiral: { ...STYLE_BASE, family: "organic", label: "Coral Spiral", tags: ["scalloped", "marine"], shape_type: "scallop", shape_roundness: 0.72, shape_wave_depth: 0.18, shape_wave_count: 10, shape_relief: 3.5, profile_type: "belly", profile_depth: 2, profile_position: 0.46, rim_style: "plain", rim_lip: 0, z_rotation: 85, texture_type: "spiral", texture_strength: 0.45, texture_scale_u: 3.2, texture_scale_v: 4.2, texture_rotation: 18, material_type: "raku" },
+      teardrop_flow: { ...STYLE_BASE, family: "organic", label: "Teardrop Flow", tags: ["asymmetric", "fluid"], shape_type: "teardrop", shape_aspect_ratio: 0.92, shape_wave_depth: 0.24, shape_relief: 4, profile_type: "shoulder", profile_depth: 2.5, profile_position: 0.58, foot_ring: 0.8, rim_style: "flared", rim_lip: 1.3, z_rotation: -18, texture_type: "micro_rings", texture_strength: 0.3, texture_scale_u: 1.2, texture_scale_v: 6.5, material_type: "glossy-ceramic" },
+      lens_ripple: { ...STYLE_BASE, family: "calm", label: "Lens Ripple", tags: ["oval", "ripples"], shape_type: "lens", shape_aspect_ratio: 1.35, shape_wave_depth: 0.2, shape_relief: 3.5, profile_type: "waist", profile_depth: 2, profile_position: 0.5, foot_ring: 1, rim_style: "band", rim_lip: 1.2, z_rotation: 0, texture_type: "rings", texture_strength: 0.4, texture_scale_u: 1, texture_scale_v: 8, material_type: "glossy-ceramic" },
+      star_lantern: { ...STYLE_BASE, family: "dramatic", label: "Star Lantern", tags: ["star", "lantern"], shape_type: "star", sections: 8, star_inner_ratio: 0.74, shape_relief: 4, profile_type: "straight", profile_depth: 0, foot_ring: 1.5, rim_style: "band", rim_lip: 1.8, z_rotation: 38, texture_type: "grid", texture_strength: 0.32, texture_scale_u: 4, texture_scale_v: 4, texture_rotation: 45, material_type: "charcoal" },
+      origami_fold: { ...STYLE_BASE, family: "geometric", label: "Origami Fold", tags: ["angular", "paper-fold"], shape_type: "diamond", shape_aspect_ratio: 0.86, shape_relief: 4, profile_type: "flare", profile_depth: 1.8, profile_position: 0.68, rim_style: "plain", rim_lip: 0, z_rotation: 65, texture_type: "none", texture_strength: 0, material_type: "porcelain-speckle" },
+      basalt_fortress: { ...STYLE_BASE, family: "dramatic", label: "Basalt Fortress", tags: ["monumental", "five-side"], shape_type: "polygon", sections: 5, shape_relief: 5, profile_type: "shoulder", profile_depth: 3, profile_position: 0.64, foot_ring: 2, foot_height: 10, rim_style: "band", rim_lip: 2, z_rotation: 0, texture_type: "hammered", texture_strength: 0.38, texture_scale_u: 3, texture_scale_v: 3, material_type: "basalt" },
+      honeycomb_tower: { ...STYLE_BASE, family: "geometric", label: "Honeycomb Tower", tags: ["hex", "cellular"], shape_type: "polygon", sections: 6, shape_relief: 3, profile_type: "belly", profile_depth: 1.5, profile_position: 0.52, foot_ring: 1, rim_style: "flared", rim_lip: 1, z_rotation: 16, texture_type: "hex", texture_strength: 0.55, texture_scale_u: 3.2, texture_scale_v: 5.2, texture_rotation: 8, material_type: "sandstone" },
+      raku_flame: { ...STYLE_BASE, family: "dramatic", label: "Raku Flame", tags: ["star", "high-twist"], shape_type: "star", sections: 6, star_inner_ratio: 0.77, shape_relief: 4.5, profile_type: "flare", profile_depth: 3, profile_position: 0.62, foot_ring: 1.2, rim_style: "flared", rim_lip: 1.6, z_rotation: 110, texture_type: "spiral", texture_strength: 0.5, texture_scale_u: 2.8, texture_scale_v: 4.8, texture_rotation: 35, material_type: "raku" },
+      nordic_vase: { ...STYLE_BASE, family: "calm", label: "Nordic Vase", tags: ["quiet", "waisted"], shape_type: "circle", shape_relief: 0, profile_type: "waist", profile_depth: 3, profile_position: 0.54, foot_ring: 1.2, foot_height: 8, rim_style: "band", rim_lip: 1.4, z_rotation: 0, texture_type: "micro_rings", texture_strength: 0.24, texture_scale_u: 1, texture_scale_v: 7.5, material_type: "porcelain-speckle" },
+      mechanical_bloom: { ...STYLE_BASE, family: "geometric", label: "Mechanical Bloom", tags: ["gear", "engineered"], shape_type: "gear", sections: 12, star_inner_ratio: 0.8, shape_roundness: 0.55, shape_relief: 4, profile_type: "flare", profile_depth: 2, profile_position: 0.6, foot_ring: 1.5, rim_style: "band", rim_lip: 1.7, z_rotation: -24, texture_type: "grid", texture_strength: 0.4, texture_scale_u: 4.5, texture_scale_v: 4.5, material_type: "worn-steel" },
+      zen_dune: { ...STYLE_BASE, family: "calm", label: "Zen Dune", tags: ["wide", "quiet"], shape_type: "ellipse", shape_aspect_ratio: 1.14, shape_relief: 3, profile_type: "belly", profile_depth: 3.5, profile_position: 0.44, foot_ring: 0.8, rim_style: "plain", rim_lip: 0, z_rotation: 0, texture_type: "hammered", texture_strength: 0.25, texture_scale_u: 2.6, texture_scale_v: 2.2, material_type: "smooth-sand" },
+      prism_torque: { ...STYLE_BASE, family: "dramatic", label: "Prism Torque", tags: ["triangular", "twisted"], shape_type: "polygon", sections: 3, shape_relief: 4.5, profile_type: "shoulder", profile_depth: 2, profile_position: 0.6, foot_ring: 1.5, rim_style: "plain", rim_lip: 0, z_rotation: 95, texture_type: "none", texture_strength: 0, material_type: "oxidized-copper" },
+      moon_crater: { ...STYLE_BASE, family: "organic", label: "Moon Crater", tags: ["cratered", "rounded"], shape_type: "squircle", shape_roundness: 0.88, shape_relief: 2.5, profile_type: "shoulder", profile_depth: 2.5, profile_position: 0.66, foot_ring: 1, rim_style: "band", rim_lip: 1.5, z_rotation: 8, texture_type: "hammered", texture_strength: 0.55, texture_scale_u: 4, texture_scale_v: 3.5, material_type: "dark-stone" },
+      copper_cascade: { ...STYLE_BASE, family: "dramatic", label: "Copper Cascade", tags: ["braided", "tall-flow"], shape_type: "teardrop", shape_aspect_ratio: 1.08, shape_wave_depth: 0.2, shape_relief: 3.5, profile_type: "waist", profile_depth: 3, profile_position: 0.6, foot_ring: 1, rim_style: "flared", rim_lip: 1.8, z_rotation: 52, texture_type: "braid", texture_strength: 0.48, texture_scale_u: 2.8, texture_scale_v: 5.5, texture_rotation: 22, material_type: "oxidized-copper" },
     };
 
     const CUSTOM_PRESETS_KEY = "potify_custom_presets_v1";
@@ -6310,6 +6382,8 @@
       bodyGradient.addColorStop(1, palette[1]);
       context.fillStyle = bodyGradient;
       context.fill();
+      context.strokeStyle = "rgba(15, 23, 42, 0.28)";
+      context.stroke();
       context.save();
       context.clip();
       context.strokeStyle = "rgba(30, 41, 59, 0.2)";
@@ -6332,8 +6406,6 @@
         }
       }
       context.restore();
-      context.strokeStyle = "rgba(15, 23, 42, 0.28)";
-      context.stroke();
       context.fillStyle = "rgba(15, 23, 42, 0.38)";
       context.beginPath();
       context.ellipse(centerX, topY, 34, 9, 0, 0, Math.PI * 2);
@@ -6385,7 +6457,10 @@
 
     function renderStyleGallery() {
       if (!styleGallery) return;
-      styleGallery.innerHTML = Object.entries(PRESETS).map(([key, preset]) => (
+      const visibleStyles = Object.entries(PRESETS).filter(([, preset]) => (
+        activeStyleFamily === "all" || preset.family === activeStyleFamily
+      ));
+      styleGallery.innerHTML = visibleStyles.map(([key, preset]) => (
         `<button type="button" class="style-card" data-style-key="${key}">`
         + `<canvas width="220" height="150" aria-hidden="true"></canvas>`
         + `<span class="style-card-copy"><span class="style-card-name">${preset.label}</span>`
@@ -6397,6 +6472,28 @@
         drawStyleThumbnail(card.querySelector("canvas"), PRESETS[key]);
         card.addEventListener("click", () => applyBuiltInStyle(key));
       }
+      if (styleCount) {
+        styleCount.textContent = `${visibleStyles.length} ${visibleStyles.length === 1 ? "style" : "styles"}`;
+      }
+    }
+
+    const STYLE_FAMILIES = [
+      ["all", "All"],
+      ["calm", "Calm"],
+      ["organic", "Organic"],
+      ["geometric", "Geometric"],
+      ["dramatic", "Dramatic"],
+    ];
+    let activeStyleFamily = "all";
+
+    function renderStyleFilters() {
+      if (!styleFilter) return;
+      styleFilter.innerHTML = STYLE_FAMILIES.map(([value, label]) => {
+        const count = value === "all"
+          ? Object.keys(PRESETS).length
+          : Object.values(PRESETS).filter((preset) => preset.family === value).length;
+        return `<button type="button" data-style-family="${value}" aria-pressed="${value === activeStyleFamily}">${label} ${count}</button>`;
+      }).join("");
     }
 
     function applySelectedPreset() {
@@ -6895,6 +6992,27 @@
         minimum = Math.min(minimum, Math.hypot(nearestX, nearestY));
       }
       return minimum;
+    }
+
+    function polygonArea(points) {
+      let doubleArea = 0;
+      for (let index = 0; index < points.length; index += 1) {
+        const [x0, y0] = points[index];
+        const [x1, y1] = points[(index + 1) % points.length];
+        doubleArea += (x0 * y1) - (x1 * y0);
+      }
+      return Math.abs(doubleArea) * 0.5;
+    }
+
+    function integrateRingAreas(rings) {
+      const sorted = [...rings].sort((left, right) => left.z - right.z);
+      let volume = 0;
+      for (let index = 0; index < sorted.length - 1; index += 1) {
+        const current = sorted[index];
+        const next = sorted[index + 1];
+        volume += ((current.area + next.area) * 0.5) * (next.z - current.z);
+      }
+      return volume;
     }
 
     function textureOffset(z, theta) {
@@ -7638,6 +7756,7 @@
       const vertices = [];
       const uvs = [];
       const indices = [];
+      const ringAreas = [];
       const shapeSamples = Array.from(
         { length: pointCount },
         (_, index) => pointAngleAndRadiusFactor(index, pointCount, shape),
@@ -7683,6 +7802,8 @@
             }
           }
         }
+
+        ringAreas.push({ kind, z, area: polygonArea(ring) });
 
         for (let j = 0; j < pointCount; j++) {
           const [x, y] = ring[j];
@@ -7759,6 +7880,12 @@
       geometry.setAttribute("uv", new THREE.Float32BufferAttribute(uvs, 2));
       geometry.setIndex(indices);
       geometry.computeVertexNormals();
+      const outerVolume = integrateRingAreas(ringAreas.filter((ring) => ring.kind === "outer"));
+      const innerVolume = integrateRingAreas(ringAreas.filter((ring) => ring.kind === "inner"));
+      const holeVolume = hasDrainHole
+        ? Math.PI * ((drainHoleDiameter * 0.5) ** 2) * base
+        : 0;
+      geometry.userData.solidVolumeMm3 = Math.max(0, outerVolume - innerVolume - holeVolume);
       return geometry;
     }
 
@@ -8559,7 +8686,12 @@
           ? geometry.index.count / 3
           : geometry.attributes.position.count / 3;
         const innerDia = numberValue("pot_diameter") + (2.0 * numberValue("clearance"));
-        const totalVolume = geometryVolumeMm3(geometry) / 1000;
+        const measuredVolume = Number(geometry.userData.solidVolumeMm3);
+        const totalVolume = (
+          Number.isFinite(measuredVolume) && measuredVolume > 0
+            ? measuredVolume
+            : geometryVolumeMm3(geometry)
+        ) / 1000;
         const filamentWeight = totalVolume * 1.24;
         geometry.computeBoundingBox();
         const size = geometry.boundingBox.getSize(new THREE.Vector3());
@@ -8763,8 +8895,18 @@
     if (openStyleGalleryButton && styleDialog) {
       openStyleGalleryButton.addEventListener("click", () => {
         refreshCustomPresetOptions();
+        renderStyleFilters();
         renderStyleGallery();
         styleDialog.showModal();
+      });
+    }
+    if (styleFilter) {
+      styleFilter.addEventListener("click", (event) => {
+        const button = event.target.closest("[data-style-family]");
+        if (!button) return;
+        activeStyleFamily = button.dataset.styleFamily || "all";
+        renderStyleFilters();
+        renderStyleGallery();
       });
     }
     if (applyPresetButton && presetSelect) {
@@ -8802,6 +8944,7 @@
     populateMaterialStyleOptions();
     populateLanguageOptions();
     refreshCustomPresetOptions();
+    renderStyleFilters();
     renderStyleGallery();
     updatePrintabilityDiagnostics();
     applySharedConfigFromUrl();

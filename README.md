@@ -20,7 +20,7 @@ Python CLI and browser app for designing dimensionally accurate, 3D-printable pl
 - Grayscale mapping controls for image displacement
 - Watertight boolean text embossing and engraving
 - Fine, standard, draft, and custom nozzle/layer profiles with one-click repairs
-- Visual style gallery, named browser styles, and versioned share links
+- Visual gallery with 24 curated styles, named browser styles, and versioned share links
 - JSON/CSV batch generation from the browser or CLI
 - Live Three.js preview with model size, round-pot fit, material estimate, print time, printer-bed presets, and printability warnings
 - STL, 3MF, or combined export
@@ -81,16 +81,34 @@ The live preview reports model dimensions, guaranteed round-pot fit, estimated P
 
 Styles are complete visual starting points rather than size presets:
 
-| Style | Character |
-| --- | --- |
-| **Plain Round** | Fast, clean cylindrical sleeve |
-| **Soft Square** | Rounded-square body with a subtle belly |
-| **Ribbed Column** | Straight form with horizontal ribs |
-| **Hex Helix** | Six-sided form with a controlled twist |
-| **Seven Petals** | Seven-lobed organic flower profile |
-| **Pebble** | Wide, softly sculpted and hammered form |
-| **Fine Gear** | Restrained industrial teeth and shoulder |
-| **Sculpted Waist** | Squircle body with a waist, foot, band, and braid |
+| Style | Family | Character |
+| --- | --- | --- |
+| **Plain Round** | Calm | Fast, clean cylindrical sleeve |
+| **Soft Square** | Calm | Rounded-square body with a subtle belly |
+| **Ribbed Column** | Geometric | Straight form with horizontal ribs |
+| **Hex Helix** | Geometric | Six-sided form with a controlled twist |
+| **Seven Petals** | Organic | Seven-lobed flower profile |
+| **Pebble** | Organic | Wide, softly sculpted and hammered form |
+| **Fine Gear** | Geometric | Restrained industrial teeth and shoulder |
+| **Sculpted Waist** | Dramatic | Squircle body with waist, foot, band, and braid |
+| **Lotus Twist** | Organic | Nine petals, flowing waist, and spiral motion |
+| **Clover Bell** | Organic | Four-lobed body opening into a bell |
+| **Coral Spiral** | Organic | Ten scallops with a marine spiral surface |
+| **Teardrop Flow** | Organic | Asymmetric teardrop with a raised shoulder |
+| **Lens Ripple** | Calm | Low oval lens wrapped in fine ripples |
+| **Star Lantern** | Dramatic | Eight-point lantern with a subtle grid |
+| **Origami Fold** | Geometric | Twisted diamond with crisp untextured faces |
+| **Basalt Fortress** | Dramatic | Heavy five-sided shoulder on a broad foot |
+| **Honeycomb Tower** | Geometric | Soft hexagonal body with cellular texture |
+| **Raku Flame** | Dramatic | Six-point star with strong upward twist |
+| **Nordic Vase** | Calm | Quiet circular waist and fine horizontal lines |
+| **Mechanical Bloom** | Geometric | Twelve engineered teeth with a flared body |
+| **Zen Dune** | Calm | Wide oval belly with restrained hammered grain |
+| **Prism Torque** | Dramatic | Triangular prism under a strong twist |
+| **Moon Crater** | Organic | Rounded squircle with a cratered shoulder |
+| **Copper Cascade** | Dramatic | Braided teardrop flowing through a tall waist |
+
+Use the `All`, `Calm`, `Organic`, `Geometric`, and `Dramatic` filters to browse the gallery.
 
 Applying a built-in or saved style changes only shape, silhouette, rim, foot, twist, texture, and preview material. It preserves pot diameter, clearance, height, bottom, drainage, and print settings.
 
