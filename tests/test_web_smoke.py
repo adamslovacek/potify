@@ -27,6 +27,20 @@ def test_index_renders():
     assert b"Planter Sleeve Generator" in response.data
 
 
+def test_index_includes_parameter_help_illustrations():
+    app = create_app()
+    client = app.test_client()
+
+    source = client.get("/").get_data(as_text=True)
+
+    assert "field-help" in source
+    assert "help-popover" in source
+    assert "help-illustration" in source
+    assert "drainage_hole_count" in source
+    assert "drainage_spacing" in source
+    assert "attachParameterHelp" in source
+
+
 def test_index_exposes_24_curated_style_presets():
     app = create_app()
     client = app.test_client()
