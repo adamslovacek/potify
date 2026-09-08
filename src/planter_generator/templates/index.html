@@ -2378,6 +2378,50 @@
       }
     }
 
+    async function exportModel(event) {
+      const submitter = event.submitter;
+      if (!(submitter instanceof HTMLButtonElement) || submitter.name !== "format") return;
+
+      event.preventDefault();
+      const exportButtons = Array.from(document.querySelectorAll('button[form="generator-form"][name="format"]'));
+      const format = submitter.value === "3mf" ? "3MF" : "STL";
+      const data = new FormData(form);
+      data.set("format", submitter.value);
+
+      for (const button of exportButtons) button.disabled = true;
+      setOperationStatus(`Generating ${format}...`);
+
+      try {
+        const response = await fetch(submitter.formAction || "/generate", {
+          method: submitter.formMethod || "POST",
+          body: data,
+        });
+        if (!response.ok) {
+          const errorPage = new DOMParser().parseFromString(await response.text(), "text/html");
+          const message = errorPage.querySelector(".error")?.textContent?.trim();
+          throw new Error(message || `Export failed (${response.status})`);
+        }
+
+        const disposition = response.headers.get("Content-Disposition") || "";
+        const filenameMatch = disposition.match(/filename="?([^";]+)"?/i);
+        const filename = filenameMatch?.[1] || `planter_sleeve.${submitter.value}`;
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = filename;
+        document.body.append(link);
+        link.click();
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        setOperationStatus(`${filename} generated.`);
+      } catch (error) {
+        setOperationStatus(`Export error: ${error?.message || "Unknown error"}`, true);
+      } finally {
+        for (const button of exportButtons) button.disabled = false;
+      }
+    }
+
     async function exportBatch() {
       const file = batchFileInput?.files?.[0];
       if (!file || !confirmBatchExportButton) {
@@ -9366,6 +9410,7 @@
     batchExportButton?.addEventListener("click", () => batchDialog?.showModal());
     confirmBatchExportButton?.addEventListener("click", exportBatch);
     repairConfigButton?.addEventListener("click", repairCurrentConfig);
+    form?.addEventListener("submit", exportModel);
 
     populateMaterialStyleOptions();
     populateLanguageOptions();

@@ -27,6 +27,15 @@ def test_index_renders():
     assert b"Planter Sleeve Generator" in response.data
 
 
+def test_index_includes_async_export_handler():
+    app = create_app()
+    source = app.test_client().get("/").get_data(as_text=True)
+
+    assert "async function exportModel(event)" in source
+    assert 'form?.addEventListener("submit", exportModel)' in source
+    assert "link.download = filename" in source
+
+
 def test_index_includes_parameter_help_illustrations():
     app = create_app()
     client = app.test_client()
@@ -122,19 +131,20 @@ def test_generate_smoke_returns_download(monkeypatch):
 
     def fake_export(mesh, output_stem, fmt):
         assert mesh.is_volume
-        assert fmt.value == "stl"
-        target = output_stem.with_suffix(".stl")
-        target.write_text("solid t\nendsolid t\n", encoding="utf-8")
+        assert fmt.value in {"stl", "3mf"}
+        target = output_stem.with_suffix(f".{fmt.value}")
+        target.write_bytes(b"export")
         return [target]
 
     monkeypatch.setattr("planter_generator.web.build_planter_sleeve", fake_build)
     monkeypatch.setattr("planter_generator.web.export_model", fake_export)
 
-    response = client.post("/generate", data={"format": "stl"})
+    for export_format in ("stl", "3mf"):
+        response = client.post("/generate", data={"format": export_format})
 
-    assert response.status_code == 200
-    assert response.headers.get("Content-Disposition", "").startswith("attachment;")
-    assert response.headers.get("Content-Type", "").startswith("model/stl")
+        assert response.status_code == 200
+        assert f"planter_sleeve.{export_format}" in response.headers.get("Content-Disposition", "")
+        assert response.headers.get("Content-Type", "").startswith(f"model/{export_format}")
 
 
 def test_generate_propagates_new_geometry_and_print_fields(monkeypatch):
