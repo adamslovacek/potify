@@ -5,8 +5,20 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Planter Sleeve Generator</title>
   <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
+  <script>
+    // Light or dark: html[data-theme]. The home server's shared day and night switch sets it (and marks itself with
+    // window.__hsTheme); without it the system's preference decides, followed live.
+    (() => {
+      const root = document.documentElement;
+      const query = window.matchMedia("(prefers-color-scheme: dark)");
+      const follow = () => { if (!window.__hsTheme) root.dataset.theme = query.matches ? "dark" : "light"; };
+      follow();
+      query.addEventListener("change", follow);
+    })();
+  </script>
   <style>
     :root {
+      color-scheme: light;
       --bg: #ffffff;
       --panel: #fafbfc;
       --ink: #0f172a;
@@ -21,6 +33,10 @@
       --panel-shadow: 0 4px 12px rgba(15, 23, 42, 0.05);
       --accent: #3b82f6;
       --accent-light: #dbeafe;
+      --status-ink: #26384d;
+      --status-border: #bac8d8;
+      --status-error-ink: #8e2a1b;
+      --status-error-border: #e6a999;
     }
     * { box-sizing: border-box; }
     body {
@@ -1021,6 +1037,93 @@
       }
       .mobile-export-bar button { min-height: 42px; border-radius: 8px; }
       .operation-status { bottom: 78px; }
+    }
+    /* Dark theme: tokens, then every rule above whose colours are not tokens (same selectors, dark values). */
+    :root[data-theme="dark"] {
+      color-scheme: dark;
+      --bg: #111827;
+      --panel: #0f1623;
+      --ink: #e5e9f0;
+      --muted: #94a3b8;
+      --line: #263244;
+      --button: #e2e8f0;
+      --button-text: #0f172a;
+      --input-bg: #0b1220;
+      --input-ink: #e5e9f0;
+      --input-border: #334155;
+      --shadow: 0 10px 25px rgba(0, 0, 0, 0.45);
+      --panel-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      --accent: #60a5fa;
+      --accent-light: #1e3a5f;
+      --status-ink: #dbe4ef;
+      --status-border: #334155;
+      --status-error-ink: #fca5a5;
+      --status-error-border: #7f3b2f;
+    }
+    [data-theme="dark"] body { background: radial-gradient(circle at top left, #151d2c 0%, #0d1320 45%, #0b111c 100%); }
+    [data-theme="dark"] header { border-bottom-color: #1f2937; }
+    [data-theme="dark"] .error { background: #3a1d17; color: #fbb4a5; border-color: #7a3426; }
+    [data-theme="dark"] input:focus, [data-theme="dark"] select:focus { border-color: #64748b; background: #0f1a2b; box-shadow: 0 0 0 4px rgba(148, 163, 184, 0.15); }
+    [data-theme="dark"] .preset-control, [data-theme="dark"] .language-control, [data-theme="dark"] .history-control, [data-theme="dark"] .utility-actions,
+    [data-theme="dark"] .style-filter { background: #1a2333; border-color: #2b3648; }
+    [data-theme="dark"] .preset-control select { border-color: #334155; background: #0b1220; }
+    [data-theme="dark"] .style-gallery-toolbar { background: #111827; }
+    [data-theme="dark"] .style-filter button { color: #94a3b8; }
+    [data-theme="dark"] .style-filter button:hover { background: rgba(255, 255, 255, 0.06); }
+    [data-theme="dark"] .style-filter button[aria-pressed="true"] { background: #0b1220; color: #e5e9f0; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4); }
+    [data-theme="dark"] .style-count, [data-theme="dark"] .menu-group summary::after, [data-theme="dark"] .mesh-stat-label { color: #94a3b8; }
+    [data-theme="dark"] .style-card { border-color: #334155; background: #0f1623; color: #e5e9f0; }
+    [data-theme="dark"] .style-card:hover, [data-theme="dark"] .style-card:focus-visible { border-color: #60a5fa; box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.18); }
+    [data-theme="dark"] .style-card canvas { background: #1a2333; }
+    [data-theme="dark"] .style-card-tag { color: #a7b4c6; background: #1a2333; }
+    [data-theme="dark"] .saved-style-row, [data-theme="dark"] .surface-subheading { border-top-color: #263244; }
+    [data-theme="dark"] .utility-menu > summary { border-color: #334155; background: #1a2333; color: #cbd5e1; }
+    [data-theme="dark"] .utility-menu-popover { border-color: #334155; background: #111827; box-shadow: 0 16px 36px rgba(0, 0, 0, 0.5); }
+    [data-theme="dark"] .language-button { border-color: #334155; background: #0b1220; color: #cbd5e1; }
+    [data-theme="dark"] .language-button:hover { border-color: #475569; background: #131c2c; }
+    [data-theme="dark"] .language-button:focus-visible { border-color: #64748b; }
+    [data-theme="dark"] .language-chevron { border-color: #94a3b8; }
+    [data-theme="dark"] .language-menu { border-color: #2b3648; background: rgba(17, 24, 39, 0.97); box-shadow: 0 18px 40px rgba(0, 0, 0, 0.5); }
+    [data-theme="dark"] .language-option { color: #e2e8f0; }
+    [data-theme="dark"] .language-option:hover, [data-theme="dark"] .language-option:focus-visible { background: #1a2333; }
+    [data-theme="dark"] .language-option[aria-selected="true"] { background: #1e3a5f; color: #bfdbfe; }
+    [data-theme="dark"] .header-actions button { box-shadow: 0 8px 16px rgba(0, 0, 0, 0.35); }
+    [data-theme="dark"] .export-status { border-color: #334155; background: #1a2333; color: #a5b4c8; }
+    [data-theme="dark"] .export-status[data-state="ok"] { border-color: #2f6b44; background: #12291c; color: #86efac; }
+    [data-theme="dark"] .export-status[data-state="warn"] { border-color: #7c4a32; background: #2d1a12; color: #fdba8c; }
+    :where([data-theme="dark"]) button { background: linear-gradient(135deg, #e5e9f0 0%, #c8d1de 100%); box-shadow: 0 12px 22px rgba(0, 0, 0, 0.35); }
+    :where([data-theme="dark"]) button:hover { box-shadow: 0 14px 26px rgba(0, 0, 0, 0.45); }
+    [data-theme="dark"] .button-secondary { color: #e2e8f0; background: linear-gradient(135deg, #253042 0%, #1c2534 100%); box-shadow: 0 10px 18px rgba(0, 0, 0, 0.3); }
+    [data-theme="dark"] .preview-wrap { background: #0f1623; }
+    [data-theme="dark"] .preview-toolbar { border-color: rgba(71, 85, 105, 0.6); background: rgba(17, 24, 39, 0.82); box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35); }
+    [data-theme="dark"] .preview-tool-btn, [data-theme="dark"] .preview-unit-select, [data-theme="dark"] .preview-bed-select { border-color: #334155; background: #0b1220; color: #cbd5e1; }
+    [data-theme="dark"] .preview-tool-btn:hover, [data-theme="dark"] .preview-tool-btn:focus-visible { border-color: #475569; background: #131c2c; }
+    [data-theme="dark"] .preview-tool-btn[aria-pressed="true"] { border-color: #3b82f6; background: #1e3a5f; color: #dbeafe; }
+    [data-theme="dark"] #preview-canvas { background: linear-gradient(180deg, #111827 0%, #0b1220 100%); }
+    [data-theme="dark"] .preview-panel .preview-error, [data-theme="dark"] .mesh-stats { background: rgba(17, 24, 39, 0.92); border-top-color: #263244; }
+    [data-theme="dark"] .menu-group { border-color: #263244; background: #111827; }
+    [data-theme="dark"] .menu-group summary { color: #cbd5e1; background: #0f1623; }
+    [data-theme="dark"] .menu-group[open] summary { border-bottom-color: #263244; }
+    [data-theme="dark"] .preview-error { color: #fca5a5; }
+    [data-theme="dark"] .mesh-stat-value { color: #e5e9f0; }
+    [data-theme="dark"] .material-thumb { border-color: #334155; background: #0f1623; color: #cbd5e1; }
+    [data-theme="dark"] .material-thumb:hover { border-color: #64748b; }
+    [data-theme="dark"] .material-thumb[aria-selected="true"] { border-color: #60a5fa; box-shadow: inset 0 0 0 1px rgba(96, 165, 250, 0.35); }
+    [data-theme="dark"] .material-thumb-label, [data-theme="dark"] .printability-list { color: #a7b4c6; }
+    [data-theme="dark"] .texture-editor { border-color: #2b3648; background: #0f1623; }
+    [data-theme="dark"] .texture-editor canvas { border-color: #334155; background: #0b1220; }
+    [data-theme="dark"] .toggle-label input[type="checkbox"] { accent-color: #94a3b8; }
+    [data-theme="dark"] .help-button { border-color: #3b5b85; background: #15253b; color: #93c5fd; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.06); }
+    [data-theme="dark"] .help-button:focus-visible, [data-theme="dark"] .help-button:hover { border-color: #60a5fa; background: #1b3150; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35), 0 0 0 4px rgba(96, 165, 250, 0.2); }
+    [data-theme="dark"] .help-popover { border-color: #2b3648; background: #111827; color: #e2e8f0; box-shadow: 0 18px 42px rgba(0, 0, 0, 0.5); }
+    [data-theme="dark"] .help-title { color: #f1f5f9; }
+    [data-theme="dark"] .help-illustration { border-color: #263244; }   /* the drawings keep their light background */
+    [data-theme="dark"] .help-text, [data-theme="dark"] .surface-subheading { color: #cbd5e1; }
+    [data-theme="dark"] .operation-status { background: #111827; box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45); }
+    [data-theme="dark"] dialog { border-color: #334155; background: #111827; box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6); }
+    [data-theme="dark"] dialog::backdrop { background: rgba(0, 0, 0, 0.6); }
+    @media (max-width: 780px) {
+      [data-theme="dark"] .mobile-export-bar { border-top-color: #263244; background: rgba(17, 24, 39, 0.96); box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.4); }
     }
   </style>
 </head>
@@ -2247,8 +2350,8 @@
     function setOperationStatus(message, isError = false) {
       if (!operationStatus) return;
       operationStatus.textContent = message;
-      operationStatus.style.borderColor = isError ? "#e6a999" : "#bac8d8";
-      operationStatus.style.color = isError ? "#8e2a1b" : "#26384d";
+      operationStatus.style.borderColor = isError ? "var(--status-error-border)" : "var(--status-border)";
+      operationStatus.style.color = isError ? "var(--status-error-ink)" : "var(--status-ink)";
     }
 
     function readCustomPresets() {
@@ -7230,6 +7333,39 @@
     let axisLabelSprites = [];
     let boundingBoxHelper = null;
     let printerBedVisual = null;
+    let viewerGrids = [];
+
+    const VIEWER_THEMES = {
+      light: { background: 0xffffff, fine: [0x7b93b5, 0xcfd8e5], coarse: [0x5e769a, 0x98abc4] },
+      dark: { background: 0x111827, fine: [0x46587a, 0x253247], coarse: [0x5b6f92, 0x34435c] },
+    };
+    function viewerTheme() {
+      return VIEWER_THEMES[document.documentElement.dataset.theme === "dark" ? "dark" : "light"];
+    }
+    function buildViewerGrids() {
+      // Two-layer grid keeps lines readable when zooming out.
+      viewerGrids.forEach((grid) => { scene.remove(grid); grid.geometry.dispose(); grid.material.dispose(); });
+      const theme = viewerTheme(), gridSize = 2200;
+      viewerGrids = [[220, theme.fine, 1, 0.6], [44, theme.coarse, 1.2, 0.9]].map(([divisions, colors, z, opacity]) => {
+        const grid = new THREE.GridHelper(gridSize, divisions, colors[0], colors[1]);
+        grid.rotation.x = Math.PI / 2;
+        grid.position.z = z;
+        grid.frustumCulled = false;
+        grid.material.transparent = true;
+        grid.material.opacity = opacity;
+        scene.add(grid);
+        return grid;
+      });
+    }
+    function applyViewerTheme() {
+      if (!scene || !renderer) return;
+      const theme = viewerTheme();
+      if (scene.background && scene.background.getHex() === theme.background) return;
+      scene.background = new THREE.Color(theme.background);
+      renderer.setClearColor(theme.background, 1);
+      buildViewerGrids();
+    }
+    new MutationObserver(applyViewerTheme).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
     let lastModelBox = null;
     let hasAutoFramedModel = false;
     const AXIS_HELPER_LENGTH = 240;
@@ -9013,7 +9149,7 @@
 
     function initScene() {
       scene = new THREE.Scene();
-      scene.background = new THREE.Color(0xffffff);
+      scene.background = new THREE.Color(viewerTheme().background);
 
       ambient = new THREE.AmbientLight(0xffffff, 0.58);
       scene.add(ambient);
@@ -9027,32 +9163,14 @@
       scene.add(fill);
 
       addAxisHelpers();
-
-      // Two-layer grid keeps lines readable when zooming out.
-      const gridSize = 2200;
-      const fineGrid = new THREE.GridHelper(gridSize, 220, 0x7b93b5, 0xcfd8e5);
-      fineGrid.rotation.x = Math.PI / 2;
-      fineGrid.position.z = 1;
-      fineGrid.frustumCulled = false;
-      fineGrid.material.transparent = true;
-      fineGrid.material.opacity = 0.6;
-      scene.add(fineGrid);
-
-      const coarseGrid = new THREE.GridHelper(gridSize, 44, 0x5e769a, 0x98abc4);
-      coarseGrid.rotation.x = Math.PI / 2;
-      coarseGrid.position.z = 1.2;
-      coarseGrid.frustumCulled = false;
-      coarseGrid.material.transparent = true;
-      coarseGrid.material.opacity = 0.9;
-      scene.add(coarseGrid);
-
+      buildViewerGrids();
       updatePrinterBedVisual();
     }
 
     function initRenderer() {
       renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
       renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-      renderer.setClearColor(0xffffff, 1);
+      renderer.setClearColor(viewerTheme().background, 1);
     }
 
     function initCamera() {
